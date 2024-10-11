@@ -7,7 +7,7 @@ namespace Splitwise_Back.Data
         public async static Task InitializeDbAsync(this IServiceProvider serviceProvider)
         {
             using var scope = serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await dbContext.Database.MigrateAsync();
 
         }

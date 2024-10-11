@@ -1,6 +1,9 @@
-using System.Reflection.Metadata.Ecma335;
+
+using Auth.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Splitwise_Back.Data;
+using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services;
 
@@ -14,14 +17,18 @@ namespace Splitwise_Back.Controllers
     {
         private readonly ILogger<UserController> _logger;
         private readonly CloudinaryService _cloudinary;
-        
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly ITokenService _tokenService;
 
-        public UserController(ILogger<UserController> logger,CloudinaryService cloudinary,UserManager<IdentityUser> userManager )
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly AppDbContext _context;
+
+        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<IdentityUser> userManager, ITokenService tokenService, AppDbContext context)
         {
             _logger = logger;
             _cloudinary = cloudinary;
             _userManager = userManager;
+            _tokenService = tokenService;
+            _context = context;
         }
 
         [HttpPost]
@@ -30,34 +37,50 @@ namespace Splitwise_Back.Controllers
         {
             if (image is null)
             {
-                return BadRequest("No image file received.");
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["No image recived."]
+                });
             }
-            if(!ModelState.IsValid){
-                return BadRequest("");
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Invalid Payload"]
+                });
             }
-            var user = new IdentityUser(){
+            var user = new IdentityUser()
+            {
                 UserName = newUser.Name,
                 Email = newUser.Email,
             };
             try
             {
                 var downloadUrl = await _cloudinary.UploadImage(image);
-                var isUserCreated = await _userManager.CreateAsync(user,newUser.Password);
-                if(!isUserCreated.Succeeded){
-                    return StatusCode(500,"Server Error");
+                var isUserCreated = await _userManager.CreateAsync(user, newUser.Password);
+                if (!isUserCreated.Succeeded)
+                {
+                    return BadRequest(new AuthResults()
+                    {
+                        Result = false,
+                        Errors = IdentityErrorHandler.GetErrors(isUserCreated)
+                    });
                 }
-                return Ok(new { DownloadUrl = downloadUrl });
+                var Token = await _tokenService.GenerateJwtToken(user);
+
+                if (!Token.Result)
+                {
+                    return StatusCode(500, Token);
+                }
+                Token.DownloadUrl = downloadUrl;
+                return Ok(Token);
             }
             catch (System.Exception ex)
             {
-                 return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-        }
-
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
-        {
-            return View("Error!");
         }
     }
 }

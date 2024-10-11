@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Splitwise_Back.Configuration;
 using Splitwise_Back.Data;
+using Splitwise_Back.Services;
 
 namespace Splitwise_Back.Extensions
 {
@@ -19,7 +20,7 @@ namespace Splitwise_Back.Extensions
 
 
             // adding the Jwttoken service
-            // services.AddScoped<ITokenService, JwtTokenService>();
+            services.AddScoped<ITokenService, JwtTokenService>();
 
             /* 
                 Add Jwt configuration to the builder DI

@@ -12,7 +12,7 @@ using Splitwise_Back.Data;
 namespace Splitwise_Back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20241010054603_Initial")]
+    [Migration("20241011090110_Initial")]
     partial class Initial
     {
         /// <inheritdoc />

@@ -21,9 +21,19 @@ namespace Splitwise_Back.Services
             };
             try{
                 var uploadResults = await _cloudinary.UploadAsync(uploadParameters);
+                var ImagePublicId = uploadResults.PublicId;
                 return uploadResults.SecureUrl.ToString();
             }catch(Exception ex){
                 throw new Exception($"Server Error:{ex.Message}");
+            }
+        }
+
+        public async Task<bool> DeleteImageByPublicIc(string PublicId){
+            try{
+            await _cloudinary.DestroyAsync(new DeletionParams(PublicId));
+            return true;
+            }catch(Exception ex){
+                throw new Exception($"Server Error {ex.Message}");
             }
         }
     }

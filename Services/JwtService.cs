@@ -32,16 +32,18 @@ namespace Splitwise_Back.Services
 
         public async Task<AuthResults> GenerateJwtToken(IdentityUser user)
         {
-            var jwtTokenHandler = new JwtSecurityTokenHandler();
+            try
+            {
+                var jwtTokenHandler = new JwtSecurityTokenHandler();
 
-            // convert the string into byte of arrays
-            var key = Encoding.UTF8.GetBytes(_config.Secret);
-            /* Claims
-                this is used to add key value pair of data that should be encrypetd 
-                and addded to the jwt token
-            */
-            var _claims = new ClaimsIdentity([
-                new Claim("Id",user.Id),
+                // convert the string into byte of arrays
+                var key = Encoding.UTF8.GetBytes(_config.Secret);
+                /* Claims
+                    this is used to add key value pair of data that should be encrypetd 
+                    and addded to the jwt token
+                */
+                var _claims = new ClaimsIdentity([
+                    new Claim("Id",user.Id),
                 new Claim(JwtRegisteredClaimNames.Sub,user.Email ?? throw new ArgumentNullException(nameof(user),"User's Email cannot be null")),
                 new Claim(JwtRegisteredClaimNames.Email,user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString()),
@@ -49,48 +51,53 @@ namespace Splitwise_Back.Services
 
             ]);
 
-            /*
-                A token descriptor describes the properites and values to be in the token
-            */
-            var tokenDescriptor = new SecurityTokenDescriptor()
+                /*
+                    A token descriptor describes the properites and values to be in the token
+                */
+                var tokenDescriptor = new SecurityTokenDescriptor()
+                {
+                    Subject = _claims,
+                    Expires = DateTime.UtcNow.Add(_config.ExpiryTimeFrame),
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
+
+                };
+                var token = jwtTokenHandler.CreateToken(tokenDescriptor);
+                var jwtToken = jwtTokenHandler.WriteToken(token);
+
+
+                //  creating a new refresh token
+                var refreshToken = new RefreshToken()
+                {
+                    JwtId = token.Id,
+                    Token = RandomStringGenerator(23), // Generate a refresh token
+                    ExpiryDate = DateTime.UtcNow.AddMonths(6),
+                    UserId = user.Id,
+                    IsRevoked = false,
+                    IsUsed = false,
+                    AddedDate = DateTime.UtcNow,
+
+                };
+
+                // adding the refresh token to the database
+                await _context.RefreshTokens.AddAsync(refreshToken);
+                await _context.SaveChangesAsync();
+
+
+
+                return new AuthResults()
+                {
+                    Token = jwtToken,
+                    RefreshToken = refreshToken.Token,
+                    Result = true
+                };
+            }
+            catch (Exception ex)
             {
-                Subject = _claims,
-                Expires = DateTime.UtcNow.Add(_config.ExpiryTimeFrame),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
-
-            };
-            var token = jwtTokenHandler.CreateToken(tokenDescriptor);
-            var jwtToken = jwtTokenHandler.WriteToken(token);
-
-
-            //  creating a new refresh token
-            var refreshToken = new RefreshToken()
-            {
-                JwtId = token.Id,
-                Token = RandomStringGenerator(23), // Generate a refresh token
-                ExpiryDate = DateTime.UtcNow.AddMonths(6),
-                UserId = user.Id,
-                IsRevoked = false,
-                IsUsed = false,
-                AddedDate = DateTime.UtcNow,
-
-            };
-
-            // adding the refresh token to the database
-            await _context.RefreshTokens.AddAsync(refreshToken);
-            await _context.SaveChangesAsync();
-
-
-
-            return new AuthResults()
-            {
-                Token = jwtToken,
-                RefreshToken = refreshToken.Token,
-                Result = true
-            };
+                throw new Exception($"Server Error {ex.Message}");
+            }
         }
 
-        private string RandomStringGenerator(int length)
+        private static string RandomStringGenerator(int length)
         {
             var random = new Random();
             var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_abcdefghijklmnopqrstuvwxyz";
@@ -157,7 +164,8 @@ namespace Splitwise_Back.Services
                         }
 
                         var jti = TokenInVerification.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti);
-                        if(jti is null || jti.Value is null){
+                        if (jti is null || jti.Value is null)
+                        {
                             return new AuthResults()
                             {
                                 Errors = ["token not valid"],
