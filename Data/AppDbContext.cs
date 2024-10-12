@@ -4,7 +4,7 @@ using Splitwise_Back.Models;
 
 namespace Splitwise_Back.Data
 {
-    public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext(options)
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<CustomUser>(options)
     {
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Groups> Groups { get; set; }
@@ -15,6 +15,10 @@ namespace Splitwise_Back.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+            builder.Entity<CustomUser>(entity =>
+            {
+                entity.Property(u => u.ImageUrl).HasMaxLength(256);
+            });
             // Group configuration
             builder.Entity<Groups>()
                 .HasKey(g => g.Id);
@@ -23,7 +27,7 @@ namespace Splitwise_Back.Data
                 .HasMany(g => g.GroupMembers)
                 .WithOne(gm => gm.Group)
                 .OnDelete(DeleteBehavior.Cascade);
-                
+
             builder.Entity<Groups>()
                 .HasMany(g => g.Expenses)
                 .WithOne(e => e.Group)

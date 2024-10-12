@@ -52,7 +52,7 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid Payload"]
                 });
             }
-            var user = new IdentityUser()
+            var user = new CustomUser()
             {
                 UserName = newUser.Name,
                 Email = newUser.Email,
@@ -60,6 +60,7 @@ namespace Splitwise_Back.Controllers
             try
             {
                 var downloadUrl = await _cloudinary.UploadImage(image);
+                user.ImageUrl = downloadUrl;
                 var isUserCreated = await _userManager.CreateAsync(user, newUser.Password);
                 if (!isUserCreated.Succeeded)
                 {
@@ -102,15 +103,7 @@ namespace Splitwise_Back.Controllers
                 return BadRequest(new AuthResults()
                 {
                     Result = false,
-                    Errors = ["Invalid Credentials"]
-                });
-            }
-            if (!existing_user.EmailConfirmed)
-            {
-                return BadRequest(new AuthResults()
-                {
-                    Result = false,
-                    Errors = ["Invalid Credentials"]
+                    Errors = ["Email Not Registered"]
                 });
             }
             var isCorrect = await _userManager.CheckPasswordAsync(existing_user, userLogin.Password);
@@ -119,10 +112,53 @@ namespace Splitwise_Back.Controllers
                 return BadRequest(new AuthResults()
                 {
                     Result = false,
-                    Errors = ["Invalid Credentials"]
+                    Errors = ["Invalid Passwored"]
                 });
             }
             return Ok(await _tokenService.GenerateJwtToken(existing_user));
+        }
+
+        [HttpDelete]
+        [Route("delete/{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var user = await _userManager.FindByIdAsync(id.ToString());
+            if (user is null)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Email Not Registered"]
+                });
+            }
+            var isDeleted = await _userManager.DeleteAsync(user);
+            if(!isDeleted.Succeeded){
+                return StatusCode(500,new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Server Error"]
+                });
+            }
+            return Ok("User Deleted sucessfully");
+        }
+        [HttpPut]
+        [Route("update")]
+
+        public async Task<IActionResult> UpdateUser(int id,[FromBody] IFormFile Image, UserRegistrationDto updateUser){
+            var user = await _userManager.FindByIdAsync(id.ToString());
+            if (user is null)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Email Not Registered"]
+                });
+            }
+            if(Image is null){
+
+            }
+
+            return Ok();
         }
     }
 }

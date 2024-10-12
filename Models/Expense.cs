@@ -11,7 +11,7 @@ namespace Splitwise_Back.Models
         public required Groups Group { get; set; } // Navigation Property
 
         public required string PayerId { get; set; } // Foreign Key to Users Table (Payer)
-        public required IdentityUser Payer { get; set; } // Navigation Property for Payer
+        public required CustomUser Payer { get; set; } // Navigation Property for Payer
 
         public required decimal Amount { get; set; } // Total amount of the expense
         public required DateTime Date { get; set; } // Date of the expense
