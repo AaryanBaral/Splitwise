@@ -12,8 +12,8 @@ using Splitwise_Back.Data;
 namespace Splitwise_Back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20241011090110_Initial")]
-    partial class Initial
+    [Migration("20241012143511_Changes made in deletiong cascades")]
+    partial class Changesmadeindeletiongcascades
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -227,6 +227,106 @@ namespace Splitwise_Back.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Splitwise_Back.Models.Expense", b =>
+                {
+                    b.Property<int>("ExpenseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExpenseId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("decimal(14,4)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayerId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("ExpenseId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("PayerId");
+
+                    b.ToTable("Expenses");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.ExpenseShare", b =>
+                {
+                    b.Property<int>("ExpenseId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("AmountOwed")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("decimal(14,4)");
+
+                    b.Property<string>("OwesUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ShareType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("ExpenseId", "UserId");
+
+                    b.HasIndex("OwesUserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ExpenseShares");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.GroupMembers", b =>
+                {
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("JoinDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("GroupId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GroupMembers");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.Groups", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Groups");
+                });
+
             modelBuilder.Entity("Splitwise_Back.Models.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -262,6 +362,27 @@ namespace Splitwise_Back.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.UserBalance", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("OwedToUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("Balance")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("decimal(14,4)");
+
+                    b.HasKey("UserId", "OwedToUserId");
+
+                    SqlServerKeyBuilderExtensions.IsClustered(b.HasKey("UserId", "OwedToUserId"), false);
+
+                    b.HasIndex("OwedToUserId");
+
+                    b.ToTable("UserBalance");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -313,6 +434,102 @@ namespace Splitwise_Back.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.Expense", b =>
+                {
+                    b.HasOne("Splitwise_Back.Models.Groups", "Group")
+                        .WithMany("Expenses")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "Payer")
+                        .WithMany()
+                        .HasForeignKey("PayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Payer");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.ExpenseShare", b =>
+                {
+                    b.HasOne("Splitwise_Back.Models.Expense", "Expense")
+                        .WithMany("ExpenseShares")
+                        .HasForeignKey("ExpenseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "OwesUser")
+                        .WithMany()
+                        .HasForeignKey("OwesUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Expense");
+
+                    b.Navigation("OwesUser");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.GroupMembers", b =>
+                {
+                    b.HasOne("Splitwise_Back.Models.Groups", "Group")
+                        .WithMany("GroupMembers")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.UserBalance", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "OwedToUser")
+                        .WithMany()
+                        .HasForeignKey("OwedToUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("OwedToUser");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.Expense", b =>
+                {
+                    b.Navigation("ExpenseShares");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.Groups", b =>
+                {
+                    b.Navigation("Expenses");
+
+                    b.Navigation("GroupMembers");
                 });
 #pragma warning restore 612, 618
         }

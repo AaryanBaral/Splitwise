@@ -1,5 +1,6 @@
 
 using Auth.Helpers;
+using Auth.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Splitwise_Back.Data;
@@ -81,6 +82,47 @@ namespace Splitwise_Back.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+        }
+
+        [HttpPost]
+        [Route("login")]
+        public async Task<IActionResult> Login([FromBody] UserLoginDto userLogin)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Invalid payload"]
+                });
+            }
+            var existing_user = await _userManager.FindByEmailAsync(userLogin.Email);
+            if (existing_user is null)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Invalid Credentials"]
+                });
+            }
+            if (!existing_user.EmailConfirmed)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Invalid Credentials"]
+                });
+            }
+            var isCorrect = await _userManager.CheckPasswordAsync(existing_user, userLogin.Password);
+            if (!isCorrect)
+            {
+                return BadRequest(new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Invalid Credentials"]
+                });
+            }
+            return Ok(await _tokenService.GenerateJwtToken(existing_user));
         }
     }
 }
