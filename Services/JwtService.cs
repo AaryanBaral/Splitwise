@@ -22,13 +22,13 @@ namespace Splitwise_Back.Services
         IOptions<JwtConfig> config,
         AppDbContext context,
         TokenValidationParameters tokenValidationParameters,
-        UserManager<IdentityUser> userManager
+        UserManager<CustomUser> userManager
     ) : ITokenService
     {
         private readonly JwtConfig _config = config.Value;
         private readonly AppDbContext _context = context;
         private readonly TokenValidationParameters _tokenValidationParameters = tokenValidationParameters;
-        private readonly UserManager<IdentityUser> _userManager = userManager;
+        private readonly UserManager<CustomUser> _userManager = userManager;
 
         public async Task<AuthResults> GenerateJwtToken(IdentityUser user)
         {

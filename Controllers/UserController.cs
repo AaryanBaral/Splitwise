@@ -3,6 +3,7 @@ using Auth.Helpers;
 using Auth.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
@@ -20,10 +21,10 @@ namespace Splitwise_Back.Controllers
         private readonly CloudinaryService _cloudinary;
         private readonly ITokenService _tokenService;
 
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<CustomUser> _userManager;
         private readonly AppDbContext _context;
 
-        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<IdentityUser> userManager, ITokenService tokenService, AppDbContext context)
+        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<CustomUser> userManager, ITokenService tokenService, AppDbContext context)
         {
             _logger = logger;
             _cloudinary = cloudinary;
@@ -120,7 +121,7 @@ namespace Splitwise_Back.Controllers
 
         [HttpDelete]
         [Route("delete/{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        public async Task<IActionResult> DeleteUser(string id)
         {
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user is null)
@@ -132,8 +133,9 @@ namespace Splitwise_Back.Controllers
                 });
             }
             var isDeleted = await _userManager.DeleteAsync(user);
-            if(!isDeleted.Succeeded){
-                return StatusCode(500,new AuthResults()
+            if (!isDeleted.Succeeded)
+            {
+                return StatusCode(500, new AuthResults()
                 {
                     Result = false,
                     Errors = ["Server Error"]
@@ -141,10 +143,12 @@ namespace Splitwise_Back.Controllers
             }
             return Ok("User Deleted sucessfully");
         }
+
+        // Api testing Remaining for update
         [HttpPut]
         [Route("update")]
-
-        public async Task<IActionResult> UpdateUser(int id,[FromBody] IFormFile Image, UserRegistrationDto updateUser){
+        public async Task<IActionResult> UpdateUser(string id, [FromForm(Name = "Image")] IFormFile Image, [FromForm] UserRegistrationDto updateUser)
+        {
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user is null)
             {
@@ -154,11 +158,39 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Email Not Registered"]
                 });
             }
-            if(Image is null){
-
+            CustomUser userToUpdate = new()
+            {
+                UserName = updateUser.Name,
+                Email = updateUser.Email,
+                ImageUrl = user.ImageUrl
+            };
+            if (Image is not null)
+            {
+                userToUpdate.ImageUrl = await _cloudinary.UploadImage(Image);
+            }
+            var isUpdated = await _userManager.UpdateAsync(userToUpdate);
+            if (!isUpdated.Succeeded)
+            {
+                return StatusCode(500, new AuthResults()
+                {
+                    Result = false,
+                    Errors = ["Server Error"]
+                });
             }
 
-            return Ok();
+            return Ok("User Updated Sucessfully.");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            return Ok(await _userManager.Users.ToListAsync());
+        }
+        [HttpGet]
+        [Route("{id}")]
+        public async Task<IActionResult> GetUserById(string id)
+        {
+            return Ok(await _userManager.FindByIdAsync(id));
         }
     }
 }

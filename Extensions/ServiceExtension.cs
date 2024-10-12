@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Splitwise_Back.Configuration;
 using Splitwise_Back.Data;
+using Splitwise_Back.Models;
 using Splitwise_Back.Services;
 
 namespace Splitwise_Back.Extensions
@@ -75,7 +76,7 @@ namespace Splitwise_Back.Extensions
         /// Configures ASP.NET Core Identity.
         public static void AddIdentityConfiguration(this IServiceCollection services)
         {
-            services.AddDefaultIdentity<IdentityUser>(options =>
+            services.AddIdentity<CustomUser,IdentityRole>(options =>
             {
                 options.SignIn.RequireConfirmedEmail = false;
             })
