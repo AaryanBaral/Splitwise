@@ -26,11 +26,19 @@ namespace Splitwise_Back.Data
             builder.Entity<Groups>()
                 .HasMany(g => g.GroupMembers)
                 .WithOne(gm => gm.Group)
+                .HasForeignKey(gm => gm.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            builder.Entity<Groups>()
+            .HasOne(g=>g.CreatedByUser)
+            .WithMany(u=>u.CreatedGroups)
+            .HasForeignKey(gm => gm.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Groups>()
                 .HasMany(g => g.Expenses)
                 .WithOne(e => e.Group)
+                .HasForeignKey(e => e.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // composit of groupID and UserID as a primary key for the table
@@ -72,13 +80,13 @@ namespace Splitwise_Back.Data
                 .HasOne(es => es.User)
                 .WithMany()
                 .HasForeignKey(es => es.UserId)
-                    .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ExpenseShare>()
                 .HasOne(es => es.OwesUser)
                 .WithMany()
                 .HasForeignKey(es => es.OwesUserId)
-                    .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ExpenseShare>()
                 .Property(e => e.AmountOwed)

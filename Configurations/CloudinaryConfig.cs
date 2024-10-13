@@ -8,7 +8,7 @@ namespace Splitwise_Back.Configurations
     {
         public static void ConfigureCloudinary(this IServiceCollection service)
         {
-            string CLOUDINARY_URL = "YourCloud";
+            string CLOUDINARY_URL = "YOUR CLOUD";
             Cloudinary cloudinary = new(CLOUDINARY_URL);
             cloudinary.Api.Secure = true;
             service.AddSingleton(cloudinary);
