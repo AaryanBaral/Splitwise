@@ -146,8 +146,8 @@ namespace Splitwise_Back.Controllers
 
         // Api testing Remaining for update
         [HttpPut]
-        [Route("update")]
-        public async Task<IActionResult> UpdateUser(string id, [FromForm(Name = "Image")] IFormFile Image, [FromForm] UserRegistrationDto updateUser)
+        [Route("update/{id}")]
+        public async Task<IActionResult> UpdateUser(string id, [FromForm] UserRegistrationDto updateUser,[FromForm(Name = "Image")] IFormFile? Image = null)
         {
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user is null)
@@ -158,23 +158,24 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Email Not Registered"]
                 });
             }
-            CustomUser userToUpdate = new()
-            {
-                UserName = updateUser.Name,
-                Email = updateUser.Email,
-                ImageUrl = user.ImageUrl
-            };
+            user.Email = updateUser.Email;
+            user.UserName = updateUser.Name;
             if (Image is not null)
             {
-                userToUpdate.ImageUrl = await _cloudinary.UploadImage(Image);
+                user.ImageUrl = await _cloudinary.UploadImage(Image);
             }
-            var isUpdated = await _userManager.UpdateAsync(userToUpdate);
+            var isUpdated = await _userManager.UpdateAsync(user);
             if (!isUpdated.Succeeded)
             {
+                foreach (var error in isUpdated.Errors)
+                {
+                    // Log or display the error descriptions
+                    Console.WriteLine($"Error: {error.Code} - {error.Description}");
+                }
                 return StatusCode(500, new AuthResults()
                 {
                     Result = false,
-                    Errors = ["Server Error"]
+                    Errors = [$"{isUpdated.Errors}"]
                 });
             }
 
