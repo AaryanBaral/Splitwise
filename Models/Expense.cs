@@ -1,11 +1,10 @@
 
-using Microsoft.AspNetCore.Identity;
 
 namespace Splitwise_Back.Models
 {
     public class Expense
     {
-        public int ExpenseId { get; set; } // Primary Key
+        public int Id { get; set; } // Primary Key
 
         public required int GroupId { get; set; } // Foreign Key to Groups Table
         public required Groups Group { get; set; } // Navigation Property

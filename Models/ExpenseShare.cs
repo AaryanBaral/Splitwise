@@ -1,5 +1,4 @@
 
-using Microsoft.AspNetCore.Identity;
 
 namespace Splitwise_Back.Models
 {

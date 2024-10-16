@@ -1,6 +1,5 @@
-
 using Auth.Helpers;
-using Auth.Models.DTOs;
+using Splitwise_Back.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

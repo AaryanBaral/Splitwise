@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 
 
-namespace Auth.Models.DTOs
+namespace Splitwise_Back.Models.DTOs
 {
     public class UserLoginDto
     {
