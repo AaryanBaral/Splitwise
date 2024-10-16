@@ -16,8 +16,6 @@ namespace Splitwise_Back.Extensions
         {
             services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            services.AddEndpointsApiExplorer();
-            services.AddSwaggerGen();
 
 
             // adding the Jwttoken service
@@ -33,6 +31,7 @@ namespace Splitwise_Back.Extensions
             services.Configure<JwtConfig>(configuration.GetSection("JwtConfig"));
             services.AddJwtAuthentication(configuration);
             services.AddIdentityConfiguration();
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // services.AddSingleton<EmailService>();
         }
 

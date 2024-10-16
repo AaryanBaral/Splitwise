@@ -226,7 +226,7 @@ namespace Splitwise_Back.Services
         }
 
 
-        private DateTime UnixTimeStampToDate(long utcExpiryDate)
+        private static DateTime UnixTimeStampToDate(long utcExpiryDate)
         {
             // 1970,1,1,0,0,0,0 is a standard unniex epoch ,starting point
             var dateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
