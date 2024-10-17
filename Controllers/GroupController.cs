@@ -37,7 +37,7 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
-        if (groupDto.UserIds is null)
+        if (groupDto.UserIds is null || groupDto.UserIds.Count < 2)
         {
             return BadRequest("group must contain atleast 2 members");
         }
@@ -138,7 +138,7 @@ public class GroupController : Controller
     }
 
     [HttpGet]
-    [Route("{id}")]
+    [Route("creator/{id}")]
     public async Task<IActionResult> GetGroupByCreator(string id)
     {
         var groups = await _context.Groups.Where(g => g.CreatedByUserId == id)
@@ -240,7 +240,10 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
-
+        if (removeFromGroupDto.UserIds is null || removeFromGroupDto.UserIds.Count == 0)
+        {
+            return BadRequest("please provie the id of user to be removed");
+        }
         var group = await _context.Groups
         .Include(g => g.GroupMembers)
         .FirstOrDefaultAsync(g => g.Id == id);
@@ -291,6 +294,10 @@ public class GroupController : Controller
         {
             return BadRequest("Group of give id not found");
         }
+        if ((group.GroupMembers.Count + addToGroup.UserIds.Count) > 50)
+        {
+            return BadRequest("Group cant have more than 50 members.");
+        }
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -316,6 +323,7 @@ public class GroupController : Controller
                 {
                     return BadRequest("No users found of given id");
                 }
+
                 await _context.GroupMembers.AddRangeAsync(groupMembers);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
