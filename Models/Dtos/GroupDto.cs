@@ -17,6 +17,7 @@ public class ReadGroupDto
 {
     public required string Id { get; set; }
     public string? GroupName { get; set; }
+
     public string? Description { get; set; }
     public DateTime DateCreated { get; set; }
     public List<GroupMemberDto>? GroupMembers { get; set; } // Or create another DTO for members

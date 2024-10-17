@@ -13,7 +13,7 @@ namespace Splitwise_Back.Controllers
 
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     public class UserController : Controller
     {
         private readonly ILogger<UserController> _logger;
@@ -71,6 +71,7 @@ namespace Splitwise_Back.Controllers
                     });
                 }
                 var Token = await _tokenService.GenerateJwtToken(user);
+                Token.Id = user.Id;
 
                 if (!Token.Result)
                 {
@@ -115,7 +116,9 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid Passwored"]
                 });
             }
-            return Ok(await _tokenService.GenerateJwtToken(existing_user));
+            var Result = await _tokenService.GenerateJwtToken(existing_user);
+            Result.Id = existing_user.Id;
+            return Ok(Result);
         }
 
         [HttpDelete]

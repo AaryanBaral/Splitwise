@@ -10,7 +10,8 @@ namespace Splitwise_Back.Data
         public DbSet<Groups> Groups { get; set; }
         public DbSet<GroupMembers> GroupMembers { get; set; }
         public DbSet<Expense> Expenses { get; set; }
-        public DbSet<ExpenseShare> ExpenseShares { get; set; }
+        public DbSet<ExpenseShare> ExpenseShares { get; set; } 
+        public DbSet<UserBalance> UserBalances { get; set; } 
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

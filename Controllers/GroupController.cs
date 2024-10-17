@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AutoMapper;
+using CloudinaryDotNet;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -13,7 +14,7 @@ namespace Splitwise_Back.Controllers;
 
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class GroupController : Controller
 {
     private readonly ILogger<GroupController> _logger;
@@ -269,8 +270,6 @@ public class GroupController : Controller
 
         _context.GroupMembers.RemoveRange(membersToRemove);
         await _context.SaveChangesAsync();
-
-
         return Ok("Members removed successfuly");
     }
 
