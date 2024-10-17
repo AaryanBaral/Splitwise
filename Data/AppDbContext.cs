@@ -15,6 +15,7 @@ namespace Splitwise_Back.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+            
             builder.Entity<CustomUser>(entity =>
             {
                 entity.Property(u => u.ImageUrl).HasMaxLength(256);
@@ -22,16 +23,23 @@ namespace Splitwise_Back.Data
             // Group configuration
             builder.Entity<Groups>()
                 .HasKey(g => g.Id);
+            builder.Entity<Groups>()
+                .Property(g => g.Id)
+                .ValueGeneratedOnAdd();
+            builder.Entity<RefreshToken>()
+                .Property(g => g.Id)
+                .ValueGeneratedOnAdd();
 
             builder.Entity<Groups>()
                 .HasMany(g => g.GroupMembers)
                 .WithOne(gm => gm.Group)
                 .HasForeignKey(gm => gm.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
+
             builder.Entity<Groups>()
-            .HasOne(g=>g.CreatedByUser)
-            .WithMany(u=>u.CreatedGroups)
+            .HasOne(g => g.CreatedByUser)
+            .WithMany(u => u.CreatedGroups)
             .HasForeignKey(gm => gm.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
@@ -118,9 +126,14 @@ namespace Splitwise_Back.Data
                 .HasForeignKey(e => e.GroupId);
 
             builder.Entity<Expense>()
+                .Property(g => g.Id)
+                .ValueGeneratedOnAdd();
+
+            builder.Entity<Expense>()
                 .HasOne(e => e.Payer)
                 .WithMany()
                 .HasForeignKey(e => e.PayerId);
+
             builder.Entity<Expense>()
                 .Property(e => e.Amount)
                 .HasPrecision(14, 4);

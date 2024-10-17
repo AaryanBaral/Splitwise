@@ -3,7 +3,7 @@ namespace Splitwise_Back.Models
 {
     public class Groups
     {
-        public int Id { get; set; }
+        public string Id { get; set; } = Guid.NewGuid().ToString();
         public required string GroupName { get; set; }
         public required string Description { get; set; }
         public required string CreatedByUserId { get; set; }

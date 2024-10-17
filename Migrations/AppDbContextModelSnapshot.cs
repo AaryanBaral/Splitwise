@@ -226,11 +226,9 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.Expense", b =>
                 {
-                    b.Property<int>("ExpenseId")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExpenseId"));
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(14, 4)
@@ -243,14 +241,15 @@ namespace Splitwise_Back.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("GroupId")
-                        .HasColumnType("int");
+                    b.Property<string>("GroupId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PayerId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.HasKey("ExpenseId");
+                    b.HasKey("Id");
 
                     b.HasIndex("GroupId");
 
@@ -261,8 +260,8 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.ExpenseShare", b =>
                 {
-                    b.Property<int>("ExpenseId")
-                        .HasColumnType("int");
+                    b.Property<string>("ExpenseId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
@@ -291,8 +290,8 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.GroupMembers", b =>
                 {
-                    b.Property<int>("GroupId")
-                        .HasColumnType("int");
+                    b.Property<string>("GroupId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
@@ -312,11 +311,9 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.Groups", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
@@ -342,11 +339,9 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.RefreshToken", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("AddedDate")
                         .HasColumnType("datetime2");

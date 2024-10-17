@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Splitwise_Back.Configuration;
+using Splitwise_Back.Configurations;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;

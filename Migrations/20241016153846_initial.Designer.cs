@@ -12,8 +12,8 @@ using Splitwise_Back.Data;
 namespace Splitwise_Back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20241012150812_identity user modified")]
-    partial class identityusermodified
+    [Migration("20241016153846_initial")]
+    partial class initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -105,12 +105,10 @@ namespace Splitwise_Back.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProviderKey")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("nvarchar(max)");
@@ -147,12 +145,10 @@ namespace Splitwise_Back.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Name")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
@@ -233,11 +229,9 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.Expense", b =>
                 {
-                    b.Property<int>("ExpenseId")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExpenseId"));
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(14, 4)
@@ -250,14 +244,15 @@ namespace Splitwise_Back.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("GroupId")
-                        .HasColumnType("int");
+                    b.Property<string>("GroupId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PayerId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.HasKey("ExpenseId");
+                    b.HasKey("Id");
 
                     b.HasIndex("GroupId");
 
@@ -268,8 +263,8 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.ExpenseShare", b =>
                 {
-                    b.Property<int>("ExpenseId")
-                        .HasColumnType("int");
+                    b.Property<string>("ExpenseId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
@@ -298,11 +293,14 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.GroupMembers", b =>
                 {
-                    b.Property<int>("GroupId")
-                        .HasColumnType("int");
+                    b.Property<string>("GroupId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("JoinDate")
                         .HasColumnType("datetime2");
@@ -316,11 +314,20 @@ namespace Splitwise_Back.Migrations
 
             modelBuilder.Entity("Splitwise_Back.Models.Groups", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("nvarchar(450)");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("GroupName")
                         .IsRequired()
@@ -328,16 +335,16 @@ namespace Splitwise_Back.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedByUserId");
+
                     b.ToTable("Groups");
                 });
 
             modelBuilder.Entity("Splitwise_Back.Models.RefreshToken", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("AddedDate")
                         .HasColumnType("datetime2");
@@ -505,6 +512,17 @@ namespace Splitwise_Back.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Splitwise_Back.Models.Groups", b =>
+                {
+                    b.HasOne("Splitwise_Back.Models.CustomUser", "CreatedByUser")
+                        .WithMany("CreatedGroups")
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+                });
+
             modelBuilder.Entity("Splitwise_Back.Models.UserBalance", b =>
                 {
                     b.HasOne("Splitwise_Back.Models.CustomUser", "OwedToUser")
@@ -522,6 +540,11 @@ namespace Splitwise_Back.Migrations
                     b.Navigation("OwedToUser");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Splitwise_Back.Models.CustomUser", b =>
+                {
+                    b.Navigation("CreatedGroups");
                 });
 
             modelBuilder.Entity("Splitwise_Back.Models.Expense", b =>

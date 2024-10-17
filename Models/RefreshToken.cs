@@ -4,7 +4,7 @@ namespace Splitwise_Back.Models
 {
     public class RefreshToken
     {
-        public int Id { get; set; }
+        public string Id { get; set; } = Guid.NewGuid().ToString();
         public required string UserId { get; set; }
         public required string Token { get; set; }
         public required string JwtId { get; set; }

@@ -1,8 +1,7 @@
-namespace Splitwise_Back.Configuration
+namespace Splitwise_Back.Configurations;
+
+public class JwtConfig
 {
-    public class JwtConfig
-    {
-        public required string Secret { get; set; }
-        public required TimeSpan ExpiryTimeFrame {get; set;}
-    }
+    public required string Secret { get; set; }
+    public required TimeSpan ExpiryTimeFrame {get; set;}
 }

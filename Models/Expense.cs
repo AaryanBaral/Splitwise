@@ -4,9 +4,9 @@ namespace Splitwise_Back.Models
 {
     public class Expense
     {
-        public int Id { get; set; } // Primary Key
+        public string Id { get; set; }  = Guid.NewGuid().ToString() ;// Primary Key
 
-        public required int GroupId { get; set; } // Foreign Key to Groups Table
+        public required string GroupId { get; set; } // Foreign Key to Groups Table
         public required Groups Group { get; set; } // Navigation Property
 
         public required string PayerId { get; set; } // Foreign Key to Users Table (Payer)

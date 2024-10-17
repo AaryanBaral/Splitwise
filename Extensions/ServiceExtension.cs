@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
-using Splitwise_Back.Configuration;
+using Splitwise_Back.Configurations;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Services;

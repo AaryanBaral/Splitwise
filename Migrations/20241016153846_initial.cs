@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Splitwise_Back.Migrations
 {
     /// <inheritdoc />
-    public partial class Tablescreated : Migration
+    public partial class initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -30,6 +30,7 @@ namespace Splitwise_Back.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ImageUrl = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -51,24 +52,10 @@ namespace Splitwise_Back.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Groups",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    GroupName = table.Column<string>(type: "nvarchar(max)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Groups", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "RefreshTokens",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     UserId = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Token = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     JwtId = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -128,8 +115,8 @@ namespace Splitwise_Back.Migrations
                 name: "AspNetUserLogins",
                 columns: table => new
                 {
-                    LoginProvider = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
-                    ProviderKey = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderKey = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ProviderDisplayName = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false)
                 },
@@ -173,8 +160,8 @@ namespace Splitwise_Back.Migrations
                 columns: table => new
                 {
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    LoginProvider = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Value = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
@@ -186,6 +173,27 @@ namespace Splitwise_Back.Migrations
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Groups",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    GroupName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    DateCreated = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Groups", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Groups_AspNetUsers_CreatedByUserId",
+                        column: x => x.CreatedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -216,9 +224,8 @@ namespace Splitwise_Back.Migrations
                 name: "Expenses",
                 columns: table => new
                 {
-                    ExpenseId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    GroupId = table.Column<int>(type: "int", nullable: false),
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    GroupId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     PayerId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Amount = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: false),
                     Date = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -226,7 +233,7 @@ namespace Splitwise_Back.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Expenses", x => x.ExpenseId);
+                    table.PrimaryKey("PK_Expenses", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Expenses_AspNetUsers_PayerId",
                         column: x => x.PayerId,
@@ -245,8 +252,9 @@ namespace Splitwise_Back.Migrations
                 name: "GroupMembers",
                 columns: table => new
                 {
-                    GroupId = table.Column<int>(type: "int", nullable: false),
+                    GroupId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    IsAdmin = table.Column<bool>(type: "bit", nullable: false),
                     JoinDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -270,7 +278,7 @@ namespace Splitwise_Back.Migrations
                 name: "ExpenseShares",
                 columns: table => new
                 {
-                    ExpenseId = table.Column<int>(type: "int", nullable: false),
+                    ExpenseId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     UserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
                     OwesUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     AmountOwed = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: false),
@@ -293,7 +301,7 @@ namespace Splitwise_Back.Migrations
                         name: "FK_ExpenseShares_Expenses_ExpenseId",
                         column: x => x.ExpenseId,
                         principalTable: "Expenses",
-                        principalColumn: "ExpenseId",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -362,6 +370,11 @@ namespace Splitwise_Back.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Groups_CreatedByUserId",
+                table: "Groups",
+                column: "CreatedByUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserBalance_OwedToUserId",
                 table: "UserBalance",
                 column: "OwedToUserId");
@@ -404,10 +417,10 @@ namespace Splitwise_Back.Migrations
                 name: "Expenses");
 
             migrationBuilder.DropTable(
-                name: "AspNetUsers");
+                name: "Groups");
 
             migrationBuilder.DropTable(
-                name: "Groups");
+                name: "AspNetUsers");
         }
     }
 }

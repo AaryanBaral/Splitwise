@@ -105,8 +105,7 @@ public class GroupController : Controller
         {
             // Rollback the transaction in case of any error
             await transaction.RollbackAsync();
-
-            // Log the exception (you can use a logging framework here)
+            _logger.LogError(ex, "An error occurred while adding members to the group: {Message}", ex.Message);
             return StatusCode(500, new { Message = "An error occurred while creating the group.", Error = ex.Message });
         }
     }
@@ -154,7 +153,7 @@ public class GroupController : Controller
     }
 
     [HttpDelete]
-    [Route("/delete/{id}")]
+    [Route("delete/{id}")]
     public async Task<IActionResult> DeleteGroup(string id)
     {
         var group = await _context.Groups.FindAsync(id);
@@ -192,9 +191,8 @@ public class GroupController : Controller
         return Ok("Group Deleted Successfully");
     }
 
-    [Authorize]
     [HttpPut]
-    [Route("/update/{id}")]
+    [Route("update/{id}")]
     public async Task<IActionResult> UpdateGroup(string id, [FromBody] UpdateGroupDto updateGroup)
     {
         if (!ModelState.IsValid)
@@ -232,5 +230,102 @@ public class GroupController : Controller
         _context.Groups.Update(group);
         await _context.SaveChangesAsync();
         return Ok(new { Message = "Group Updated" });
+    }
+
+    [HttpPatch]
+    [Route("remove/{id}")]
+    public async Task<IActionResult> RemoveFromGroup(string id, [FromBody] RemoveFromGroupDto removeFromGroupDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var group = await _context.Groups
+        .Include(g => g.GroupMembers)
+        .FirstOrDefaultAsync(g => g.Id == id);
+
+        if (group is null)
+        {
+            return BadRequest("Group of give id not found");
+        }
+
+        var membersToRemove = group
+        .GroupMembers
+        .Where(gm => removeFromGroupDto.UserIds.Contains(gm.UserId))
+        .ToList();
+
+        if (membersToRemove.Count <= 0)
+        {
+            return BadRequest("No users provided exist in the group");
+        }
+        if ((group.GroupMembers.Count - membersToRemove.Count) < 2)
+        {
+            return BadRequest("Removing mmembers will make a group of single user either delete or reduce the list of members");
+        }
+
+        _context.GroupMembers.RemoveRange(membersToRemove);
+        await _context.SaveChangesAsync();
+
+
+        return Ok("Members removed successfuly");
+    }
+
+    [HttpPatch]
+    [Route("add/{id}")]
+    public async Task<IActionResult> AddMembersToGroup(string id, [FromBody] AddToGroupDto addToGroup)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+        if (addToGroup.UserIds == null || addToGroup.UserIds.Count == 0)
+        {
+            return BadRequest("UserIds list cannot be null or empty.");
+        }
+        var group = await _context.Groups
+        .Include(g => g.GroupMembers)
+        .FirstOrDefaultAsync(g => g.Id == id);
+
+        if (group is null)
+        {
+            return BadRequest("Group of give id not found");
+        }
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var usersToAdd = addToGroup.UserIds
+                .Select(userId => _userManager.FindByIdAsync(userId))
+                .ToList();
+            var users = await Task.WhenAll(usersToAdd);
+            var groupMembers = new List<GroupMembers>();
+            foreach (var user in users)
+            {
+                if (user is null)
+                {
+                    throw new Exception("provile a list of valid user Ids");
+                }
+                groupMembers.Add(new GroupMembers
+                {
+                    GroupId = group.Id,
+                    UserId = user.Id,
+                    IsAdmin = false,
+                    JoinDate = DateTime.Now
+                });
+                if (groupMembers.Count == 0)
+                {
+                    return BadRequest("No users found of given id");
+                }
+                await _context.GroupMembers.AddRangeAsync(groupMembers);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            return Ok("Member Added Sucessfully");
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { Message = "An error occurred while creating the group.", Error = ex.Message });
+        }
     }
 }
