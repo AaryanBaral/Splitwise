@@ -141,14 +141,23 @@ public class ExpenseController : ControllerBase
                 PayerId = createExpenseDto.PayerId,
                 Amount = createExpenseDto.Amount,
                 Date = DateTime.UtcNow,
+                Group = group,
+                Payer = payer,
                 Description = createExpenseDto.Description
             };
+            var expenseShares = new List<ExpenseShare>();
             _context.Expenses.Add(newExpense);
             await _context.SaveChangesAsync();
 
             //Get User Balance for each share
             foreach (var share in createExpenseDto.ExpenseShares)
             {
+                var user = await _userManager.FindByIdAsync(share.UserId);
+                var owesUser = await _userManager.FindByIdAsync(share.OwesUserId);
+                if (user is null || owesUser is null)
+                {
+                    throw new Exception("Please Provide");
+                }
                 var BalanceEntry = await _context.UserBalances
                 .FirstOrDefaultAsync(b => b.UserId == share.UserId && b.OwedToUserId == share.OwesUserId);
                 // if no Balance entry then create a new one
@@ -159,31 +168,35 @@ public class ExpenseController : ControllerBase
                     {
                         UserId = share.UserId,
                         OwedToUserId = share.OwesUserId,
-                        Balance = share.AmountOwed
+                        Balance = share.AmountOwed,
+                        User = user,
+                        OwedToUser = owesUser
                     };
-                     _context.UserBalances.Add(balanceEntry);
+                    _context.UserBalances.Add(balanceEntry);
                 }
-                else{
+                else
+                {
                     BalanceEntry.Balance += share.AmountOwed;
                 }
+                //create expense 
+                expenseShares.Add(new ExpenseShare
+                {
+                    ExpenseId = newExpense.Id,
+                    UserId = share.UserId,
+                    OwesUserId = share.OwesUserId,
+                    AmountOwed = share.AmountOwed,
+                    ShareType = share.ShareType,
+                    User = user,
+                    Expense = newExpense,
+                    OwesUser = owesUser
+                });
             }
 
-            // Save user balances
-            await _context.SaveChangesAsync(); 
-
-            //create a new Expense Share
-            var expenseShares = createExpenseDto.ExpenseShares.Select(es => new ExpenseShare
-            {
-                ExpenseId = newExpense.Id,
-                UserId = es.UserId,
-                OwesUserId = es.OwesUserId,
-                AmountOwed = es.AmountOwed,
-                ShareType = es.ShareType
-            }).ToList();
-
-
+            // Save user balances and expense share
             _context.ExpenseShares.AddRange(expenseShares);
             await _context.SaveChangesAsync();
+
+
 
             await transaction.CommitAsync();
 

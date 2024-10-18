@@ -56,6 +56,7 @@ public class GroupController : Controller
                 GroupName = groupDto.GroupName,
                 Description = groupDto.Description,
                 CreatedByUserId = groupDto.CreatedByUserId,
+                CreatedByUser = creator,
                 DateCreated = DateTime.Now
             };
             _context.Groups.Add(newGroup);
@@ -66,28 +67,30 @@ public class GroupController : Controller
                     GroupId = newGroup.Id,
                     UserId = groupDto.CreatedByUserId,
                     IsAdmin = true,
+                    Group = newGroup,
+                    User = creator,
                     JoinDate = DateTime.Now
                 }
             };
-            var usersToAdd = groupDto.UserIds
-            .Select(userId => _userManager.FindByIdAsync(userId))
-            .ToList();
-            var users = await Task.WhenAll(usersToAdd);
-            foreach (var user in users)
+            foreach (var userId in groupDto.UserIds)
             {
+                if (userId == groupDto.CreatedByUserId)
+                {
+                    continue;
+                }
+                var user = await _userManager.FindByIdAsync(userId);
                 if (user is null)
                 {
                     throw new Exception("User Id must be valid");
                 }
-                if (user.Id == groupDto.CreatedByUserId)
-                {
-                    continue;
-                }
+
                 groupMembers.Add(new GroupMembers
                 {
                     GroupId = newGroup.Id,
                     UserId = user.Id,
                     IsAdmin = false,
+                    User = user,
+                    Group = newGroup,
                     JoinDate = DateTime.Now
                 });
             }
@@ -316,6 +319,8 @@ public class GroupController : Controller
                     GroupId = group.Id,
                     UserId = user.Id,
                     IsAdmin = false,
+                    Group = group,
+                    User = user,
                     JoinDate = DateTime.Now
                 });
                 if (groupMembers.Count == 0)
