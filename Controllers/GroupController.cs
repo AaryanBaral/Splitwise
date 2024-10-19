@@ -119,8 +119,7 @@ public class GroupController : Controller
     public async Task<IActionResult> GetAll()
     {
         var AllGroups = await _context.Groups
-        .Include(g => g.GroupMembers)
-        .ThenInclude(gm => gm.User)
+        .Include(g=>g.CreatedByUser)
         .ToListAsync();
         if (AllGroups is null || AllGroups.Count == 0)
         {
@@ -132,11 +131,11 @@ public class GroupController : Controller
             GroupName = g.GroupName,
             Description = g.Description,
             DateCreated = g.DateCreated,
-            GroupMembers = g.GroupMembers.Select(m => new GroupMemberDto
-            {
-                UserId = m.UserId, // Replace with actual property from GroupMembers
-                UserName = m.User?.UserName // Assuming this exists; adjust accordingly
-            }).ToList()
+            CreatedByUserId = g.CreatedByUserId,
+            CreatedByUser = new AbstractReadUserDto(){
+                UserName = g.CreatedByUser.UserName,
+                Id = g.CreatedByUser.Id
+            }
         }).ToList();
         return Ok(readGroupDto);
     }

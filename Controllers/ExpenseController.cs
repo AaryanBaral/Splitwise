@@ -55,16 +55,6 @@ public class ExpenseController : ControllerBase
             return BadRequest("The expense does not belong to any group.");
         }
 
-        var GroupMembers = expense.Group?.GroupMembers.Select(gm => new GroupMemberDto
-        {
-            UserId = gm.UserId,
-            UserName = gm.User?.UserName
-        }).ToList();
-        if (GroupMembers is null)
-        {
-            return BadRequest("the group has no group members");
-        }
-
         var ExpenseShareForExpense = expense.ExpenseShares.Select(es => new ExpenseShareForExpense()
         {
             AmountOwed = es.AmountOwed,
@@ -83,7 +73,8 @@ public class ExpenseController : ControllerBase
 
         ReadExpenseDto readExpenseDto = new()
         {
-            GroupId = expense.Id,
+            ExpenseId = expense.Id,
+            GroupId = expense.GroupId,
             Payer = new AbstractReadUserDto()
             {
                 Id = expense.Payer?.Id,
@@ -97,6 +88,16 @@ public class ExpenseController : ControllerBase
 
         return Ok(readExpenseDto);
     }
+    [HttpGet]
+    public async Task<IActionResult> GetAllExpense([FromQuery] string groupId){
+        if(groupId is null){
+            return BadRequest("Please provide groupId");
+        }
+        var expense = await _context.Expenses
+        //start coding from here
+        .FirstOrDefaultAsync(e=>e.GroupId == groupId);
+        return Ok("");
+    }
 
     public async Task<IActionResult> CreateExpense([FromBody] CreateExpenseDto createExpenseDto)
     {
@@ -104,7 +105,13 @@ public class ExpenseController : ControllerBase
         {
             return BadRequest(ModelState);
         }
-
+        decimal total = 0;
+        foreach(var expenseShare in createExpenseDto.ExpenseShares){
+            total+= expenseShare.AmountOwed;
+        }
+        if(total != createExpenseDto.Amount){
+            return BadRequest("The expense shared amount is not valid");
+        }
         // Validate Group
         var group = await _context.Groups
             .Include(g => g.GroupMembers)

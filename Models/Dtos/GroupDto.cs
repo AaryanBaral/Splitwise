@@ -19,8 +19,10 @@ public class ReadGroupDto
     public string? GroupName { get; set; }
 
     public string? Description { get; set; }
+    public required string CreatedByUserId { get; set; }
+    public required AbstractReadUserDto CreatedByUser {get; set;}
     public DateTime DateCreated { get; set; }
-    public List<GroupMemberDto>? GroupMembers { get; set; } // Or create another DTO for members
+
 }
 public class RemoveFromGroupDto{
     public required List<string> UserIds{ get; set; }
