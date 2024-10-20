@@ -18,9 +18,9 @@ public class ExpenseController : ControllerBase
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
-    private readonly UserManager<CustomUser> _userManager;
+    private readonly UserManager<CustomUsers> _userManager;
 
-    public ExpenseController(ILogger<ExpenseController> logger, AppDbContext context, UserManager<CustomUser> userManager, IMapper mapper)
+    public ExpenseController(ILogger<ExpenseController> logger, AppDbContext context, UserManager<CustomUsers> userManager, IMapper mapper)
     {
         _logger = logger;
         _context = context;
@@ -147,7 +147,7 @@ public class ExpenseController : ControllerBase
         {
 
             //Create a new expense
-            var newExpense = new Expense
+            var newExpense = new Expenses
             {
                 Id = Guid.NewGuid().ToString(),
                 GroupId = createExpenseDto.GroupId,
@@ -158,7 +158,7 @@ public class ExpenseController : ControllerBase
                 Payer = payer,
                 Description = createExpenseDto.Description
             };
-            var expenseShares = new List<ExpenseShare>();
+            var expenseShares = new List<ExpenseShares>();
             _context.Expenses.Add(newExpense);
             await _context.SaveChangesAsync();
 
@@ -181,7 +181,7 @@ public class ExpenseController : ControllerBase
                 if (BalanceEntry is null)
                 {
                     //creating a balance entry
-                    var balanceEntry = new UserBalance
+                    var balanceEntry = new UserBalances
                     {
                         GroupId = group.Id,
                         Group = group,
@@ -198,7 +198,7 @@ public class ExpenseController : ControllerBase
                     BalanceEntry.Balance += share.AmountOwed;
                 }
                 //create expense 
-                expenseShares.Add(new ExpenseShare
+                expenseShares.Add(new ExpenseShares
                 {
                     ExpenseId = newExpense.Id,
                     UserId = share.UserId,

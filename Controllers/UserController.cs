@@ -20,10 +20,10 @@ namespace Splitwise_Back.Controllers
         private readonly CloudinaryService _cloudinary;
         private readonly ITokenService _tokenService;
 
-        private readonly UserManager<CustomUser> _userManager;
+        private readonly UserManager<CustomUsers> _userManager;
         private readonly AppDbContext _context;
 
-        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<CustomUser> userManager, ITokenService tokenService, AppDbContext context)
+        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<CustomUsers> userManager, ITokenService tokenService, AppDbContext context)
         {
             _logger = logger;
             _cloudinary = cloudinary;
@@ -52,7 +52,7 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid Payload"]
                 });
             }
-            var user = new CustomUser()
+            var user = new CustomUsers()
             {
                 UserName = newUser.Name,
                 Email = newUser.Email,

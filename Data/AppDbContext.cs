@@ -4,20 +4,20 @@ using Splitwise_Back.Models;
 
 namespace Splitwise_Back.Data
 {
-    public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<CustomUser>(options)
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<CustomUsers>(options)
     {
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Groups> Groups { get; set; }
         public DbSet<GroupMembers> GroupMembers { get; set; }
-        public DbSet<Expense> Expenses { get; set; }
-        public DbSet<ExpenseShare> ExpenseShares { get; set; } 
-        public DbSet<UserBalance> UserBalances { get; set; } 
+        public DbSet<Expenses> Expenses { get; set; }
+        public DbSet<ExpenseShares> ExpenseShares { get; set; } 
+        public DbSet<UserBalances> UserBalances { get; set; } 
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
             
-            builder.Entity<CustomUser>(entity =>
+            builder.Entity<CustomUsers>(entity =>
             {
                 entity.Property(u => u.ImageUrl).HasMaxLength(256);
             });
@@ -55,11 +55,11 @@ namespace Splitwise_Back.Data
                 .HasKey(gm => new { gm.GroupId, gm.UserId });
 
             // ExpenseShare Table Composite Key
-            builder.Entity<ExpenseShare>()
+            builder.Entity<ExpenseShares>()
                 .HasKey(es => new { es.ExpenseId, es.UserId, es.OwesUserId });
 
             // UserBalance Table Composite Key
-            builder.Entity<UserBalance>()
+            builder.Entity<UserBalances>()
                 .HasKey(ub => new { ub.UserId, ub.OwedToUserId,ub.GroupId })
                 .IsClustered(false);
 
@@ -76,77 +76,77 @@ namespace Splitwise_Back.Data
                 .HasForeignKey(gm => gm.UserId);
 
             //Relation for expense share
-            builder.Entity<ExpenseShare>()
+            builder.Entity<ExpenseShares>()
                 .Property(es => es.UserId)
                 .HasMaxLength(450);
 
-            builder.Entity<ExpenseShare>()
+            builder.Entity<ExpenseShares>()
                 .HasOne(es => es.Expense)
                 .WithMany(e => e.ExpenseShares)
                 .HasForeignKey(es => es.ExpenseId);
 
-            builder.Entity<ExpenseShare>()
+            builder.Entity<ExpenseShares>()
                 .HasOne(es => es.User)
                 .WithMany()
                 .HasForeignKey(es => es.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            builder.Entity<ExpenseShare>()
+            builder.Entity<ExpenseShares>()
                 .HasOne(es => es.OwesUser)
                 .WithMany()
                 .HasForeignKey(es => es.OwesUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            builder.Entity<ExpenseShare>()
+            builder.Entity<ExpenseShares>()
                 .Property(e => e.AmountOwed)
                 .HasPrecision(14, 4);
 
 
 
             // Relationships for UserBalance
-            builder.Entity<UserBalance>()
+            builder.Entity<UserBalances>()
                 .HasOne(ub => ub.User)
                 .WithMany()
                 .HasForeignKey(ub => ub.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            builder.Entity<UserBalance>()
+            builder.Entity<UserBalances>()
                 .HasOne(ub => ub.OwedToUser)
                 .WithMany()
                 .HasForeignKey(ub => ub.OwedToUserId)
                 .OnDelete(DeleteBehavior.NoAction);
-            builder.Entity<UserBalance>()
+            builder.Entity<UserBalances>()
             .HasOne(ub=>ub.Group)
             .WithMany(g=>g.UserBalances)
             .HasForeignKey(ub=>ub.GroupId)
             .OnDelete(DeleteBehavior.SetNull);
 
-            builder.Entity<UserBalance>()
+            builder.Entity<UserBalances>()
                 .Property(ub => ub.Balance)
                 .HasPrecision(14, 4);
 
             //For Expense
-            builder.Entity<Expense>()
+            builder.Entity<Expenses>()
                 .HasOne(e => e.Group)
                 .WithMany(g => g.Expenses)
                 .HasForeignKey(e => e.GroupId);
 
-            builder.Entity<Expense>()
+            builder.Entity<Expenses>()
                 .Property(g => g.Id)
                 .ValueGeneratedOnAdd();
 
-            builder.Entity<Expense>()
+            builder.Entity<Expenses>()
                 .HasOne(e => e.Payer)
                 .WithMany()
                 .HasForeignKey(e => e.PayerId);
 
-            builder.Entity<Expense>()
+            builder.Entity<Expenses>()
                 .Property(e => e.Amount)
                 .HasPrecision(14, 4);
 
 
 
-            builder.Entity<Expense>()
+            builder.Entity<Expenses>()
             .HasMany(e => e.ExpenseShares) //one expence can have many ExpenseShare
             .WithOne(es => es.Expense) // ExpenseShare is only associated with one Expence
             .HasForeignKey(e => e.ExpenseId) //Expense has a foreign key expenseId

@@ -75,7 +75,7 @@ namespace Splitwise_Back.Extensions
         /// Configures ASP.NET Core Identity.
         public static void AddIdentityConfiguration(this IServiceCollection services)
         {
-            services.AddIdentity<CustomUser,IdentityRole>(options =>
+            services.AddIdentity<CustomUsers,IdentityRole>(options =>
             {
                 options.SignIn.RequireConfirmedEmail = false;
             })

@@ -20,9 +20,9 @@ public class GroupController : Controller
     private readonly ILogger<GroupController> _logger;
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
-    private readonly UserManager<CustomUser> _userManager;
+    private readonly UserManager<CustomUsers> _userManager;
 
-    public GroupController(ILogger<GroupController> logger, AppDbContext context, UserManager<CustomUser> userManager, IMapper mapper)
+    public GroupController(ILogger<GroupController> logger, AppDbContext context, UserManager<CustomUsers> userManager, IMapper mapper)
     {
         _logger = logger;
         _context = context;
@@ -392,7 +392,7 @@ public class GroupController : Controller
             if (userBalanceSheet.TryGetValue(dbKey.Key, out decimal value)) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
             if (dbKey.Value != value) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
         }
-        
+
         return Ok("");
     }
 }
