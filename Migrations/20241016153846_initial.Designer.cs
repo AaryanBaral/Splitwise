@@ -13,7 +13,7 @@ namespace Splitwise_Back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20241016153846_initial")]
-    partial class initial
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

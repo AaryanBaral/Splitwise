@@ -119,7 +119,7 @@ public class GroupController : Controller
     public async Task<IActionResult> GetAll()
     {
         var AllGroups = await _context.Groups
-        .Include(g=>g.CreatedByUser)
+        .Include(g => g.CreatedByUser)
         .ToListAsync();
         if (AllGroups is null || AllGroups.Count == 0)
         {
@@ -132,7 +132,8 @@ public class GroupController : Controller
             Description = g.Description,
             DateCreated = g.DateCreated,
             CreatedByUserId = g.CreatedByUserId,
-            CreatedByUser = new AbstractReadUserDto(){
+            CreatedByUser = new AbstractReadUserDto()
+            {
                 UserName = g.CreatedByUser.UserName,
                 Id = g.CreatedByUser.Id
             }
@@ -338,5 +339,60 @@ public class GroupController : Controller
             await transaction.RollbackAsync();
             return StatusCode(500, new { Message = "An error occurred while creating the group.", Error = ex.Message });
         }
+    }
+    [HttpGet]
+    [Route("settle/{id}")]
+    public async Task<IActionResult> GetExpenseSettlement(string id)
+    {
+        var expenseShares = await _context.ExpenseShares
+        .Where(es => es.Expense.GroupId == id)
+        .Include(es => es.Expense)
+        .ToListAsync();
+
+        var userBalances = await _context.UserBalances
+        .Where(ub => ub.GroupId == id)
+        .Include(ub => ub.OwedToUser)
+        .Include(ub => ub.User)
+        .ToListAsync();
+
+        Dictionary<string, decimal> dbUserBalanceSheet = [];
+        Dictionary<string, decimal> userBalanceSheet = [];
+
+        // who owes how much and who is owed how much using expense shares
+        foreach (var expenseShare in expenseShares)
+        {
+            if (!userBalanceSheet.ContainsKey(expenseShare.UserId))
+            {
+                userBalanceSheet[expenseShare.UserId] = 0;
+            }
+            if (!userBalanceSheet.ContainsKey(expenseShare.OwesUserId))
+            {
+                userBalanceSheet[expenseShare.UserId] = 0;
+            }
+            userBalanceSheet[expenseShare.UserId] -= expenseShare.AmountOwed;
+            userBalanceSheet[expenseShare.OwesUserId] += expenseShare.AmountOwed;
+        }
+
+        foreach (var userBalance in userBalances)
+        {
+            if (!userBalanceSheet.ContainsKey(userBalance.UserId))
+            {
+                userBalanceSheet[userBalance.UserId] = 0;
+            }
+            if (!userBalanceSheet.ContainsKey(userBalance.OwedToUserId))
+            {
+                userBalanceSheet[userBalance.UserId] = 0;
+            }
+            userBalanceSheet[userBalance.UserId] -= userBalance.Balance;
+            userBalanceSheet[userBalance.OwedToUserId] += userBalance.Balance;
+        }
+        if (userBalanceSheet.Count != dbUserBalanceSheet.Count) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
+        foreach (var dbKey in dbUserBalanceSheet)
+        {
+            if (userBalanceSheet.TryGetValue(dbKey.Key, out decimal value)) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
+            if (dbKey.Value != value) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
+        }
+        
+        return Ok("");
     }
 }

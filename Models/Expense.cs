@@ -16,5 +16,6 @@ namespace Splitwise_Back.Models
         public required DateTime Date { get; set; } // Date of the expense
         public required string Description { get; set; } // Description of the expense
         public ICollection<ExpenseShare> ExpenseShares { get; set; } = new List<ExpenseShare>();
+    
     }
 }

@@ -7,6 +7,7 @@ namespace Splitwise_Back.Models
         public required string  ExpenseId { get; set; } // Foreign Key to Expenses Table
         public required Expense Expense { get; set; } // Navigation Property to Expense
 
+
         public required string UserId { get; set; } // Foreign Key to Users Table
         public required CustomUser User { get; set; } // Navigation Property for User who owes a portion
         public required string OwesUserId { get; set; }  // Foreign Key to User table (the one who is owed money)

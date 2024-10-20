@@ -56,11 +56,11 @@ namespace Splitwise_Back.Data
 
             // ExpenseShare Table Composite Key
             builder.Entity<ExpenseShare>()
-                .HasKey(es => new { es.ExpenseId, es.UserId });
+                .HasKey(es => new { es.ExpenseId, es.UserId, es.OwesUserId });
 
             // UserBalance Table Composite Key
             builder.Entity<UserBalance>()
-                .HasKey(ub => new { ub.UserId, ub.OwedToUserId })
+                .HasKey(ub => new { ub.UserId, ub.OwedToUserId,ub.GroupId })
                 .IsClustered(false);
 
 
@@ -115,6 +115,11 @@ namespace Splitwise_Back.Data
                 .WithMany()
                 .HasForeignKey(ub => ub.OwedToUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+            builder.Entity<UserBalance>()
+            .HasOne(ub=>ub.Group)
+            .WithMany(g=>g.UserBalances)
+            .HasForeignKey(ub=>ub.GroupId)
+            .OnDelete(DeleteBehavior.SetNull);
 
             builder.Entity<UserBalance>()
                 .Property(ub => ub.Balance)

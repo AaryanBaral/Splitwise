@@ -172,15 +172,19 @@ public class ExpenseController : ControllerBase
                     throw new Exception("Please Provide");
                 }
                 var BalanceEntry = await _context.UserBalances
-                .FirstOrDefaultAsync(b => b.UserId == share.UserId && b.OwedToUserId == share.OwesUserId);
+                .FirstOrDefaultAsync(
+                    b => b.UserId == share.UserId && 
+                    b.OwedToUserId == share.OwesUserId && 
+                    b.GroupId == createExpenseDto.GroupId
+                );
                 // if no Balance entry then create a new one
                 if (BalanceEntry is null)
                 {
                     //creating a balance entry
                     var balanceEntry = new UserBalance
                     {
-                        ExpenseId = newExpense.Id,
-                        Expense = newExpense,
+                        GroupId = group.Id,
+                        Group = group,
                         UserId = share.UserId,
                         OwedToUserId = share.OwesUserId,
                         Balance = share.AmountOwed,
@@ -226,63 +230,5 @@ public class ExpenseController : ControllerBase
         }
     }
 
-    [HttpGet]
-    [Route("settle/{id}")]
-    public async Task<IActionResult> GetExpenseSettlement(string id)
-    {
-        var expenseShares = await _context.ExpenseShares
-        .Where(es => es.ExpenseId == id)
-        .ToListAsync();
 
-        var userBalances = await _context.UserBalances
-        .Where(ub => ub.ExpenseId == id)
-        .Include(ub => ub.OwedToUser)
-        .Include(ub => ub.User)
-        .ToListAsync();
-
-        Dictionary<string, decimal> dbUserBalanceSheet = [];
-        Dictionary<string, decimal> userBalanceSheet = [];
-
-        // who owes how much and who is owed how much using expense shares
-        foreach (var expenseShare in expenseShares)
-        {
-            if (!userBalanceSheet.ContainsKey(expenseShare.UserId))
-            {
-                userBalanceSheet[expenseShare.UserId] = 0;
-            }
-            if (!userBalanceSheet.ContainsKey(expenseShare.OwesUserId))
-            {
-                userBalanceSheet[expenseShare.UserId] = 0;
-            }
-            userBalanceSheet[expenseShare.UserId] -= expenseShare.AmountOwed;
-            userBalanceSheet[expenseShare.OwesUserId] += expenseShare.AmountOwed;
-        }
-
-        foreach (var userBalance in userBalances)
-        {
-            if (!userBalanceSheet.ContainsKey(userBalance.UserId))
-            {
-                userBalanceSheet[userBalance.UserId] = 0;
-            }
-            if (!userBalanceSheet.ContainsKey(userBalance.OwedToUserId))
-            {
-                userBalanceSheet[userBalance.UserId] = 0;
-            }
-            userBalanceSheet[userBalance.UserId] -= userBalance.Balance;
-            userBalanceSheet[userBalance.OwedToUserId] += userBalance.Balance;
-        }
-        if (userBalanceSheet.Count != dbUserBalanceSheet.Count) return StatusCode(500,"The error ocoured beacuse the datat is not accurate ");
-        foreach (var dbKey in dbUserBalanceSheet){
-            if (userBalanceSheet.TryGetValue(dbKey.Key, out decimal value)) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
-            if(!dbKey.Value.Equals(value)) return StatusCode(500,"The error ocoured beacuse the datat is not accurate ");
-        }
-
-
-
-
-
-
-
-        return Ok("");
-    }
 }

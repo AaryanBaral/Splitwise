@@ -10,6 +10,7 @@ namespace Splitwise_Back.Models
         public required CustomUser CreatedByUser { get; set; }
         public ICollection<GroupMembers> GroupMembers { get; set; } = new List<GroupMembers>();
         public ICollection<Expense> Expenses { get; set; } = new List<Expense>();
+        public ICollection<UserBalance> UserBalances { get; set; } = new List<UserBalance>();
         public DateTime DateCreated { get; set; } = DateTime.Now;
     }
 }
