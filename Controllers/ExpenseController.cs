@@ -103,6 +103,8 @@ public class ExpenseController : ControllerBase
         return Ok("");
     }
 
+    [HttpPost]
+    [Route("create")]
     public async Task<IActionResult> CreateExpense([FromBody] CreateExpenseDto createExpenseDto)
     {
         if (!ModelState.IsValid)
@@ -118,6 +120,7 @@ public class ExpenseController : ControllerBase
         {
             return BadRequest("The expense shared amount is not valid");
         }
+
         // Validate Group
         var group = await _context.Groups
             .Include(g => g.GroupMembers)
@@ -146,10 +149,18 @@ public class ExpenseController : ControllerBase
         try
         {
 
+            if(createExpenseDto.ShareType.Equals("EQUAL", StringComparison.CurrentCultureIgnoreCase))
+            {
+                decimal sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
+            }
+            else if(createExpenseDto.ShareType.Equals("EQUAL", StringComparison.CurrentCultureIgnoreCase))
+            {
+
+            }
+
             //Create a new expense
             var newExpense = new Expenses
             {
-                Id = Guid.NewGuid().ToString(),
                 GroupId = createExpenseDto.GroupId,
                 PayerId = createExpenseDto.PayerId,
                 Amount = createExpenseDto.Amount,
@@ -229,6 +240,8 @@ public class ExpenseController : ControllerBase
             return StatusCode(500, new { Message = "An error occurred while creating the expense", Error = ex.Message });
         }
     }
+
+
 
 
 }

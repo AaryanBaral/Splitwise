@@ -31,7 +31,7 @@ public class GroupController : Controller
     }
 
     [HttpPost]
-    [Route("create")]
+    [Route("create/equal")]
     public async Task<IActionResult> CreateGroup([FromBody] CreateGroupDto groupDto)
     {
         if (!ModelState.IsValid)
@@ -120,11 +120,13 @@ public class GroupController : Controller
     {
         var AllGroups = await _context.Groups
         .Include(g => g.CreatedByUser)
+        .Include(g => g.GroupMembers)
         .ToListAsync();
         if (AllGroups is null || AllGroups.Count == 0)
         {
             return NotFound("No Group Exists");
         }
+
         var readGroupDto = AllGroups.Select(g => new ReadGroupDto
         {
             Id = g.Id,
@@ -132,6 +134,7 @@ public class GroupController : Controller
             Description = g.Description,
             DateCreated = g.DateCreated,
             CreatedByUserId = g.CreatedByUserId,
+            GroupMembers = g.GroupMembers.Select(g => g.UserId).ToList(),
             CreatedByUser = new AbstractReadUserDto()
             {
                 UserName = g.CreatedByUser.UserName,
@@ -146,14 +149,29 @@ public class GroupController : Controller
     public async Task<IActionResult> GetGroupByCreator(string id)
     {
         var groups = await _context.Groups.Where(g => g.CreatedByUserId == id)
+        .Include(g => g.GroupMembers)
+        .Include(g => g.CreatedByUser)
         .AsNoTracking()
         .ToArrayAsync();
         if (groups.Length < 1)
         {
             return NotFound("This user has no Group");
         }
-
-        return Ok(groups);
+        var readGroupDto = groups.Select(g => new ReadGroupDto
+        {
+            Id = g.Id,
+            GroupName = g.GroupName,
+            Description = g.Description,
+            DateCreated = g.DateCreated,
+            CreatedByUserId = g.CreatedByUserId,
+            GroupMembers = g.GroupMembers.Select(g => g.UserId).ToList(),
+            CreatedByUser = new AbstractReadUserDto()
+            {
+                UserName = g.CreatedByUser.UserName,
+                Id = g.CreatedByUser.Id
+            }
+        }).ToList();
+        return Ok(readGroupDto);
     }
 
     [HttpDelete]

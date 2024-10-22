@@ -17,11 +17,11 @@ public class ReadGroupDto
 {
     public required string Id { get; set; }
     public string? GroupName { get; set; }
-
     public string? Description { get; set; }
     public required string CreatedByUserId { get; set; }
     public required AbstractReadUserDto CreatedByUser {get; set;}
     public DateTime DateCreated { get; set; }
+    public required List<string> GroupMembers {get; set;}
 
 }
 public class RemoveFromGroupDto{
