@@ -149,15 +149,6 @@ public class ExpenseController : ControllerBase
         try
         {
 
-            if(createExpenseDto.ShareType.Equals("EQUAL", StringComparison.CurrentCultureIgnoreCase))
-            {
-                decimal sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
-            }
-            else if(createExpenseDto.ShareType.Equals("EQUAL", StringComparison.CurrentCultureIgnoreCase))
-            {
-
-            }
-
             //Create a new expense
             var newExpense = new Expenses
             {
@@ -173,53 +164,56 @@ public class ExpenseController : ControllerBase
             _context.Expenses.Add(newExpense);
             await _context.SaveChangesAsync();
 
-            //Get User Balance for each share
-            foreach (var share in createExpenseDto.ExpenseShares)
+            if (createExpenseDto.ShareType.Equals("EQUAL", StringComparison.CurrentCultureIgnoreCase))
             {
-                var user = await _userManager.FindByIdAsync(share.UserId);
-                var owesUser = await _userManager.FindByIdAsync(share.OwesUserId);
-                if (user is null || owesUser is null)
+                decimal sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
+                foreach (var sharedMember in createExpenseDto.ExpenseSharedMembers)
                 {
-                    throw new Exception("Please Provide");
-                }
-                var BalanceEntry = await _context.UserBalances
-                .FirstOrDefaultAsync(
-                    b => b.UserId == share.UserId && 
-                    b.OwedToUserId == share.OwesUserId && 
-                    b.GroupId == createExpenseDto.GroupId
-                );
-                // if no Balance entry then create a new one
-                if (BalanceEntry is null)
-                {
-                    //creating a balance entry
-                    var balanceEntry = new UserBalances
+                    var user = await _userManager.FindByIdAsync(sharedMember.UserId);
+                    if (user is null)
                     {
-                        GroupId = group.Id,
-                        Group = group,
-                        UserId = share.UserId,
-                        OwedToUserId = share.OwesUserId,
-                        Balance = share.AmountOwed,
+                        throw new Exception("Please Provide valid user id");
+                    }
+                    var BalanceEntry = await _context.UserBalances
+                    .FirstOrDefaultAsync(
+                        b => b.UserId == sharedMember.UserId &&
+                        b.OwedToUserId == payer.Id &&
+                        b.GroupId == createExpenseDto.GroupId
+                    );
+                    if (BalanceEntry is null)
+                    {
+                        var newBalanceEntry = new UserBalances
+                        {
+                            GroupId = group.Id,
+                            Group = group,
+                            UserId = sharedMember.UserId,
+                            OwedToUserId = payer.Id,
+                            Balance = sharedAmount,
+                            User = user,
+                            OwedToUser = payer
+                        };
+                    }
+                    else
+                    {
+                        BalanceEntry.Balance += sharedAmount;
+                    }
+                    expenseShares.Add(new ExpenseShares
+                    {
+                        ExpenseId = newExpense.Id,
+                        UserId = sharedMember.UserId,
+                        OwesUserId = payer.Id,
+                        AmountOwed = sharedAmount,
+                        ShareType = createExpenseDto.ShareType,
                         User = user,
-                        OwedToUser = owesUser
-                    };
-                    _context.UserBalances.Add(balanceEntry);
+                        Expense = newExpense,
+                        OwesUser = payer
+                    });
                 }
-                else
-                {
-                    BalanceEntry.Balance += share.AmountOwed;
-                }
-                //create expense 
-                expenseShares.Add(new ExpenseShares
-                {
-                    ExpenseId = newExpense.Id,
-                    UserId = share.UserId,
-                    OwesUserId = share.OwesUserId,
-                    AmountOwed = share.AmountOwed,
-                    ShareType = share.ShareType,
-                    User = user,
-                    Expense = newExpense,
-                    OwesUser = owesUser
-                });
+
+            }
+            else if (createExpenseDto.ShareType.Equals("EQUAL", StringComparison.CurrentCultureIgnoreCase))
+            {
+
             }
 
             // Save user balances and expense share
