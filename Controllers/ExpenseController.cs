@@ -377,6 +377,7 @@ public class ExpenseController : ControllerBase
                         });
                     }
                 }
+            
             }
 
             // Save user balances and expense share
