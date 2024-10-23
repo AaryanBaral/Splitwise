@@ -10,13 +10,14 @@ namespace Splitwise_Back.Data
         public DbSet<Groups> Groups { get; set; }
         public DbSet<GroupMembers> GroupMembers { get; set; }
         public DbSet<Expenses> Expenses { get; set; }
-        public DbSet<ExpenseShares> ExpenseShares { get; set; } 
-        public DbSet<UserBalances> UserBalances { get; set; } 
+        public DbSet<ExpenseShares> ExpenseShares { get; set; }
+        public DbSet<UserBalances> UserBalances { get; set; }
+        public DbSet<ExpensePayers> ExpensePayers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-            
+
             builder.Entity<CustomUsers>(entity =>
             {
                 entity.Property(u => u.ImageUrl).HasMaxLength(256);
@@ -30,6 +31,9 @@ namespace Splitwise_Back.Data
             builder.Entity<RefreshToken>()
                 .Property(g => g.Id)
                 .ValueGeneratedOnAdd();
+            builder.Entity<ExpensePayers>()
+            .Property(ep => ep.AmountPaid)
+            .HasPrecision(28, 10);
 
             builder.Entity<Groups>()
                 .HasMany(g => g.GroupMembers)
@@ -50,6 +54,7 @@ namespace Splitwise_Back.Data
                 .HasForeignKey(e => e.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+
             // composit of groupID and UserID as a primary key for the table
             builder.Entity<GroupMembers>()
                 .HasKey(gm => new { gm.GroupId, gm.UserId });
@@ -60,7 +65,7 @@ namespace Splitwise_Back.Data
 
             // UserBalance Table Composite Key
             builder.Entity<UserBalances>()
-                .HasKey(ub => new { ub.UserId, ub.OwedToUserId,ub.GroupId })
+                .HasKey(ub => new { ub.UserId, ub.OwedToUserId, ub.GroupId })
                 .IsClustered(false);
 
 
@@ -99,7 +104,7 @@ namespace Splitwise_Back.Data
 
             builder.Entity<ExpenseShares>()
                 .Property(e => e.AmountOwed)
-                .HasPrecision(14, 4);
+                .HasPrecision(28, 10);
 
 
 
@@ -115,16 +120,16 @@ namespace Splitwise_Back.Data
                 .WithMany()
                 .HasForeignKey(ub => ub.OwedToUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+
             builder.Entity<UserBalances>()
-            .HasOne(ub=>ub.Group)
-            .WithMany(g=>g.UserBalances)
-            .HasForeignKey(ub=>ub.GroupId)
+            .HasOne(ub => ub.Group)
+            .WithMany(g => g.UserBalances)
+            .HasForeignKey(ub => ub.GroupId)
             .OnDelete(DeleteBehavior.SetNull);
 
             builder.Entity<UserBalances>()
                 .Property(ub => ub.Balance)
-                .HasPrecision(14, 4);
-
+                .HasPrecision(28, 10);
             //For Expense
             builder.Entity<Expenses>()
                 .HasOne(e => e.Group)
@@ -136,21 +141,27 @@ namespace Splitwise_Back.Data
                 .ValueGeneratedOnAdd();
 
             builder.Entity<Expenses>()
-                .HasOne(e => e.Payer)
-                .WithMany()
-                .HasForeignKey(e => e.PayerId);
+                .HasMany(e => e.Payers)
+                .WithOne(p => p.Expense)
+                .HasForeignKey(p => p.ExpenseId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<Expenses>()
                 .Property(e => e.Amount)
-                .HasPrecision(14, 4);
-
+                .HasPrecision(28, 10);
 
 
             builder.Entity<Expenses>()
             .HasMany(e => e.ExpenseShares) //one expence can have many ExpenseShare
             .WithOne(es => es.Expense) // ExpenseShare is only associated with one Expence
-            .HasForeignKey(e => e.ExpenseId) //Expense has a foreign key expenseId
+            .HasForeignKey(e => e.ExpenseId) //Expense share has a foreign key expenseId
             .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ExpensePayers>()
+            .HasOne(ep => ep.Expense)
+            .WithMany(e => e.Payers)
+            .HasForeignKey(p => p.ExpenseId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         }
 
