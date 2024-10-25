@@ -3,7 +3,7 @@ namespace Splitwise_Back.Models.Dtos
     public class CreateExpenseDto
     {
         public required string GroupId { get; set; }
-        public required string PayerId { get; set; } //change this to optional
+        public string? PayerId { get; set; } //change this to optional
         public List<ExpensePayer>? Payers { get; set; }
         public required decimal Amount { get; set; }
         public required string Description { get; set; }
