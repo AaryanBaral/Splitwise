@@ -22,12 +22,5 @@ namespace Splitwise_Back.Models.Dtos
         public required decimal AmountOwed { get; set; }
         public required string ShareType { get; set; }
     }
-    public class CreateExpenseShareDto
-    {
-        public required string UserId { get; set; }
-        public required string OwesUserId { get; set; }
-        public required decimal AmountOwed { get; set; }
-        public required string ShareType { get; set; }
-    }
 
 }

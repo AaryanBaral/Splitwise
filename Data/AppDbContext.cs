@@ -130,6 +130,7 @@ namespace Splitwise_Back.Data
             builder.Entity<UserBalances>()
                 .Property(ub => ub.Balance)
                 .HasPrecision(28, 10);
+            
             //For Expense
             builder.Entity<Expenses>()
                 .HasOne(e => e.Group)
@@ -152,8 +153,8 @@ namespace Splitwise_Back.Data
 
 
             builder.Entity<Expenses>()
-            .HasMany(e => e.ExpenseShares) //one expence can have many ExpenseShare
-            .WithOne(es => es.Expense) // ExpenseShare is only associated with one Expence
+            .HasMany(e => e.ExpenseShares) //one expense can have many ExpenseShare
+            .WithOne(es => es.Expense) // ExpenseShare is only associated with one Expense
             .HasForeignKey(e => e.ExpenseId) //Expense share has a foreign key expenseId
             .OnDelete(DeleteBehavior.Cascade);
 
