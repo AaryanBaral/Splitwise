@@ -125,7 +125,7 @@ namespace Splitwise_Back.Data
             .HasOne(ub => ub.Group)
             .WithMany(g => g.UserBalances)
             .HasForeignKey(ub => ub.GroupId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserBalances>()
                 .Property(ub => ub.Balance)

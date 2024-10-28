@@ -70,15 +70,15 @@ namespace Splitwise_Back.Controllers
                         Errors = IdentityErrorHandler.GetErrors(isUserCreated)
                     });
                 }
-                var Token = await _tokenService.GenerateJwtToken(user);
-                Token.Id = user.Id;
+                var token = await _tokenService.GenerateJwtToken(user);
+                token.Id = user.Id;
 
-                if (!Token.Result)
+                if (!token.Result)
                 {
-                    return StatusCode(500, Token);
+                    return StatusCode(500, token);
                 }
-                Token.DownloadUrl = downloadUrl;
-                return Ok(Token);
+                token.DownloadUrl = downloadUrl;
+                return Ok(token);
             }
             catch (System.Exception ex)
             {

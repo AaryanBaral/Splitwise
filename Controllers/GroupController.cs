@@ -31,7 +31,7 @@ public class GroupController : Controller
     }
 
     [HttpPost]
-    [Route("create/equal")]
+    [Route("create")]
     public async Task<IActionResult> CreateGroup([FromBody] CreateGroupDto groupDto)
     {
         if (!ModelState.IsValid)
