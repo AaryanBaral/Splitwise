@@ -29,6 +29,20 @@ public class ExpenseController : ControllerBase
         _userManager = userManager;
     }
 
+    [HttpGet("/test/{id}")]
+    public async Task<IActionResult> GetExpense(string id)
+    {
+        var expense = await _context.Expenses
+            .Include(e=>e.ExpenseShares)
+            .Include(e=>e.Payers)
+            .Include(e=>e.Group)
+            .Where(e=>e.Id == id)
+            .FirstOrDefaultAsync();
+        
+        
+        return Ok();
+    }
+
     [HttpPost]
     [Route("create")]
     public async Task<IActionResult> CreateExpense([FromBody] CreateExpenseDto createExpenseDto)
