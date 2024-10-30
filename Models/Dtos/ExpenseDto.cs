@@ -33,7 +33,7 @@ namespace Splitwise_Back.Models.Dtos
         public required string ExpenseId { get; set; }
         public required decimal Amount { get; set; }
         public required DateTime Date { get; set; }
-        public required List<ExpensePayer> Payers { get; set; }
+        public required List<AbstractReadUserDto> Payers { get; set; }
         public required List<ReadUserBalanceDto> UserBalance { get; set; }
         public required string Description { get; set; }
         public required List<ReadExpenseShareDto> ExpenseShares { get; set; }

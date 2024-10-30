@@ -3,7 +3,6 @@ namespace Splitwise_Back.Models.Dtos
 {
     public class ReadExpenseShareDto
     {
-        public required string ExpenseId { get; set; } // Foreign Key to Expenses Table
         public required AbstractReadUserDto User { get; set; } // Navigation Property for User who owes a portion
         public required AbstractReadUserDto OwesUser { get; set; }  // Navigation property
         public required decimal AmountOwed { get; set; } // Amount the user owes for this expense
