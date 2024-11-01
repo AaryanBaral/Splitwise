@@ -133,8 +133,7 @@ public class ExpenseController : ControllerBase
         {
             return BadRequest(ModelState);
         }
-
-        Console.WriteLine(JsonConvert.SerializeObject(createExpenseDto));
+        
         //calculating and validating the provided data
         var total = createExpenseDto.Amount;
 
@@ -308,6 +307,7 @@ public class ExpenseController : ControllerBase
                                         throw new Exception("Provide valid payer id");
                         decimal payerShare = payer.Share;
                         decimal proportionOfDebtCovered = payerShare / total;
+                        Console.WriteLine("Loop activated");
                         foreach (var member in createExpenseDto.ExpenseSharedMembers)
                         {
                             if (payer.UserId == member.UserId)
@@ -315,10 +315,22 @@ public class ExpenseController : ControllerBase
                                 continue;
                             }
 
+                            var ifExistingExpenseShare = await _context.ExpenseShares.Where(es =>
+                                es.ExpenseId == newExpense.Id && es.UserId == member.UserId &&
+                                es.OwesUserId == payer.UserId).FirstOrDefaultAsync();
+                            if (ifExistingExpenseShare is not null)
+                            {
+                                Console.WriteLine($"Existing user exists of expenseId {newExpense.Id} and userId {member.UserId} and payer {payer.UserId}");
+                            }
                             var memberUser = await _userManager.FindByIdAsync(member.UserId) ??
                                              throw new Exception("provide valid member ids");
                             var amountOwedFromPayer = sharedAmount * proportionOfDebtCovered;
                             //creating expense share
+                            Console.WriteLine("Pk");
+                            Console.WriteLine(newExpense.Id);
+                            Console.WriteLine(member.UserId);
+                            Console.WriteLine(payer.UserId);
+                            Console.WriteLine("ok finish");
                             expenseShares.Add(new ExpenseShares
                             {
                                 Expense = newExpense,
