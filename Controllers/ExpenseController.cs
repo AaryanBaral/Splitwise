@@ -34,73 +34,83 @@ public class ExpenseController : ControllerBase
     [Route("test/{id}")]
     public async Task<IActionResult> GetExpense(string id)
     {
+        // Fetch the expense and related data in a single query with no tracking
         var expense = await _context.Expenses
             .Include(e => e.ExpenseShares)
             .Include(e => e.Payers)
             .Include(e => e.Group)
-            .Where(e => e.Id == id)
-            .FirstOrDefaultAsync();
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id);
+
         if (expense == null)
         {
             return NotFound();
         }
 
-        var expensePayersTasks = expense.Payers.Select(async e =>
-        {
-            var user = await _userManager.FindByIdAsync(id) ?? throw new Exception("Payer of given id not found");
-            return
-                new AbstractReadUserDto()
-                {
-                    Id = e.Id,
-                    UserName = user.UserName
-                };
-        }).ToList();
-        var userBalances = await _context.UserBalances.Where(e => e.GroupId == expense.GroupId).ToListAsync();
-        var userBalancesTask = userBalances.Select(async ub =>
-        {
-            var user = await _userManager.FindByIdAsync(ub.UserId) ?? throw new Exception("User of given id not found");
-            var owedTo = await _userManager.FindByIdAsync(ub.OwedToUserId) ??
-                         throw new Exception("User of given id not found");
+        // Fetch user balances once and apply AsNoTracking
+        var userBalances = await _context.UserBalances
+            .Where(e => e.GroupId == expense.GroupId)
+            .AsNoTracking()
+            .ToListAsync();
 
-            return new ReadUserBalanceDto()
+        // Prepare data transformations in sequential loops to avoid concurrency issues
+        var expensePayers = new List<AbstractReadUserDto>();
+        foreach (var payer in expense.Payers)
+        {
+            var user = await _userManager.FindByIdAsync(payer.PayerId);
+            if (user == null) throw new Exception("Payer of given id not found");
+            expensePayers.Add(new AbstractReadUserDto
+            {
+                Id = payer.Id,
+                UserName = user.UserName
+            });
+        }
+
+        var allUserBalances = new List<ReadUserBalanceDto>();
+        foreach (var ub in userBalances)
+        {
+            var user = await _userManager.FindByIdAsync(ub.UserId);
+            var owedTo = await _userManager.FindByIdAsync(ub.OwedToUserId);
+
+            if (user == null || owedTo == null) throw new Exception("User of given id not found");
+
+            allUserBalances.Add(new ReadUserBalanceDto
             {
                 UserId = user.Id,
                 OwedToUserId = owedTo.Id,
-                UserName =  user.UserName ?? throw new Exception("User of given id not found"),
-                OwedToUserName = owedTo.UserName ?? throw new Exception("User of given id not found"),
+                UserName = user.UserName,
+                OwedToUserName = owedTo.UserName,
                 Amount = ub.Balance
-            };
-        });
+            });
+        }
 
-        var expenseShareTask = expense.ExpenseShares.Select(async e =>
+        var expenseShares = new List<ReadExpenseShareDto>();
+        foreach (var es in expense.ExpenseShares)
         {
-            var user = await _userManager.FindByIdAsync(e.UserId) ?? throw new Exception("User of given id not found");
-            var owesUser = await _userManager.FindByIdAsync(e.OwesUserId) ?? throw new Exception("User of given id not found");
-            return new ReadExpenseShareDto()
+            var user = await _userManager.FindByIdAsync(es.UserId);
+            var owesUser = await _userManager.FindByIdAsync(es.OwesUserId);
+
+            if (user == null || owesUser == null) throw new Exception("User of given id not found");
+
+            expenseShares.Add(new ReadExpenseShareDto
             {
-                User = new AbstractReadUserDto()
+                User = new AbstractReadUserDto
                 {
-                    UserName = user.UserName ?? throw new Exception("User of given id not found"),
                     Id = user.Id,
+                    UserName = user.UserName
                 },
-                OwesUser = new AbstractReadUserDto()
+                OwesUser = new AbstractReadUserDto
                 {
-                    UserName = owesUser.UserName ?? throw new Exception("User of given id not found"),
                     Id = owesUser.Id,
+                    UserName = owesUser.UserName
                 },
-                AmountOwed = e.AmountOwed,
-                ShareType = e.ShareType,
-                
-            };
-        });
+                AmountOwed = es.AmountOwed,
+                ShareType = es.ShareType
+            });
+        }
 
-        var allUserBalances = (await Task.WhenAll(userBalancesTask)).ToList();
-
-        var expensePayers = (await Task.WhenAll(expensePayersTasks)).ToList();
-        
-        var expenseShares = (await Task.WhenAll(expenseShareTask)).ToList();
-
-        var readExpenseDto = new ReadTestExpenseDto()
+        // Populate the DTO
+        var readExpenseDto = new ReadTestExpenseDto
         {
             ExpenseShares = expenseShares,
             Payers = expensePayers,
