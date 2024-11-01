@@ -206,6 +206,10 @@ public class ExpenseController : ControllerBase
 
                     foreach (var sharedMember in createExpenseDto.ExpenseSharedMembers)
                     {
+                        if (sharedMember.UserId == createExpenseDto.PayerId)
+                        {
+                            continue;
+                        }
                         var user = await _userManager.FindByIdAsync(sharedMember.UserId);
 
                         //throw error if user is null
@@ -314,23 +318,12 @@ public class ExpenseController : ControllerBase
                             {
                                 continue;
                             }
+                            
 
-                            var ifExistingExpenseShare = await _context.ExpenseShares.Where(es =>
-                                es.ExpenseId == newExpense.Id && es.UserId == member.UserId &&
-                                es.OwesUserId == payer.UserId).FirstOrDefaultAsync();
-                            if (ifExistingExpenseShare is not null)
-                            {
-                                Console.WriteLine($"Existing user exists of expenseId {newExpense.Id} and userId {member.UserId} and payer {payer.UserId}");
-                            }
                             var memberUser = await _userManager.FindByIdAsync(member.UserId) ??
                                              throw new Exception("provide valid member ids");
                             var amountOwedFromPayer = sharedAmount * proportionOfDebtCovered;
                             //creating expense share
-                            Console.WriteLine("Pk");
-                            Console.WriteLine(newExpense.Id);
-                            Console.WriteLine(member.UserId);
-                            Console.WriteLine(payer.UserId);
-                            Console.WriteLine("ok finish");
                             expenseShares.Add(new ExpenseShares
                             {
                                 Expense = newExpense,
@@ -350,7 +343,7 @@ public class ExpenseController : ControllerBase
                                      b.GroupId == group.Id
                             );
 
-                            // if doesn't exist create a new one with the owed amount
+                            // if it doesn't exist create a new one with the owed amount
                             if (userBalance is null)
                             {
                                 var newUserBalance = new UserBalances
@@ -373,8 +366,6 @@ public class ExpenseController : ControllerBase
                             }
                         }
                     }
-
-                    await _context.ExpenseShares.AddRangeAsync(expenseShares);
                     await _context.SaveChangesAsync();
                 }
             }
@@ -457,4 +448,5 @@ public class ExpenseController : ControllerBase
                 new { Message = "An error occurred while creating the expense", Error = ex.Message });
         }
     }
+    
 }
