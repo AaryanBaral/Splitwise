@@ -6,7 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Splitwise_Back.Configurations;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
-using Splitwise_Back.Services;
+using Splitwise_Back.Services.Expense;
+using Splitwise_Back.Services.ExternalServices;
 
 namespace Splitwise_Back.Extensions
 {
@@ -23,7 +24,7 @@ namespace Splitwise_Back.Extensions
 
             /* 
                 Add Jwt configuration to the builder DI
-                It basically automatically maps the "JwtConfig" section in the appsettings.json file 
+                It basically automatically maps the "JwtConfig" section in the app settings.json file 
                 to the JwtConfig class 
                 you cant directly access the secret from jwt class instance 
                 you have to use IOption<JwtConfig> instance.Value to access the actual values inside of that class
@@ -33,6 +34,7 @@ namespace Splitwise_Back.Extensions
             services.AddIdentityConfiguration();
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // services.AddSingleton<EmailService>();
+            services.AddScoped<IExpenseService,ExpenseService>();
         }
 
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)

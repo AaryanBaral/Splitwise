@@ -11,7 +11,7 @@ using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 
 
-namespace Splitwise_Back.Services
+namespace Splitwise_Back.Services.ExternalServices
 {
     public interface ITokenService
     {

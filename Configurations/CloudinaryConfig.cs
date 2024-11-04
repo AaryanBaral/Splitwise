@@ -1,6 +1,6 @@
 
 using CloudinaryDotNet;
-using Splitwise_Back.Services;
+using Splitwise_Back.Services.ExternalServices;
 
 namespace Splitwise_Back.Configurations;
 

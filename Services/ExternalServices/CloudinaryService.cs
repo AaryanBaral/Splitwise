@@ -2,7 +2,7 @@ using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 
 
-namespace Splitwise_Back.Services
+namespace Splitwise_Back.Services.ExternalServices
 {
     public class CloudinaryService
     {

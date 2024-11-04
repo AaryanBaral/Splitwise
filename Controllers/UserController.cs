@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
-using Splitwise_Back.Services;
+using Splitwise_Back.Services.ExternalServices;
 
 
 namespace Splitwise_Back.Controllers
@@ -36,14 +36,6 @@ namespace Splitwise_Back.Controllers
         [Route("register")]
         public async Task<IActionResult> RegisterUser([FromForm] UserRegistrationDto newUser, [FromForm(Name = "Image")] IFormFile image)
         {
-            if (image is null)
-            {
-                return BadRequest(new AuthResults()
-                {
-                    Result = false,
-                    Errors = ["No image recived."]
-                });
-            }
             if (!ModelState.IsValid)
             {
                 return BadRequest(new AuthResults()

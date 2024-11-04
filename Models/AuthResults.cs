@@ -11,4 +11,13 @@ namespace Splitwise_Back.Models
         public string? Id { get; set; }
         public List<string>? Errors { get; set; }
     }
+
+    public class ExpenseResults<T>
+    {
+        public T? Data { get; set; }
+        public bool Success { get; set; }
+        public string? Errors { get; set; }
+        public int StatusCode { get; set; }
+    }
+    
 }

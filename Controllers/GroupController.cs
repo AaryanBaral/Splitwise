@@ -19,14 +19,12 @@ public class GroupController : Controller
 {
     private readonly ILogger<GroupController> _logger;
     private readonly AppDbContext _context;
-    private readonly IMapper _mapper;
     private readonly UserManager<CustomUsers> _userManager;
 
-    public GroupController(ILogger<GroupController> logger, AppDbContext context, UserManager<CustomUsers> userManager, IMapper mapper)
+    public GroupController(ILogger<GroupController> logger, AppDbContext context, UserManager<CustomUsers> userManager)
     {
         _logger = logger;
         _context = context;
-        _mapper = mapper;
         _userManager = userManager;
     }
 
@@ -385,7 +383,7 @@ public class GroupController : Controller
             }
             if (!userBalanceSheet.ContainsKey(expenseShare.OwesUserId))
             {
-                userBalanceSheet[expenseShare.UserId] = 0;
+                userBalanceSheet[expenseShare.OwesUserId] = 0;
             }
             userBalanceSheet[expenseShare.UserId] -= expenseShare.AmountOwed;
             userBalanceSheet[expenseShare.OwesUserId] += expenseShare.AmountOwed;
@@ -393,24 +391,27 @@ public class GroupController : Controller
 
         foreach (var userBalance in userBalances)
         {
-            if (!userBalanceSheet.ContainsKey(userBalance.UserId))
+            if (!dbUserBalanceSheet.ContainsKey(userBalance.UserId))
             {
-                userBalanceSheet[userBalance.UserId] = 0;
+                dbUserBalanceSheet[userBalance.UserId] = 0;
             }
-            if (!userBalanceSheet.ContainsKey(userBalance.OwedToUserId))
+            if (!dbUserBalanceSheet.ContainsKey(userBalance.OwedToUserId))
             {
-                userBalanceSheet[userBalance.UserId] = 0;
+                dbUserBalanceSheet[userBalance.OwedToUserId] = 0;
             }
-            userBalanceSheet[userBalance.UserId] -= userBalance.Balance;
-            userBalanceSheet[userBalance.OwedToUserId] += userBalance.Balance;
-        }
-        if (userBalanceSheet.Count != dbUserBalanceSheet.Count) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
-        foreach (var dbKey in dbUserBalanceSheet)
-        {
-            if (userBalanceSheet.TryGetValue(dbKey.Key, out decimal value)) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
-            if (dbKey.Value != value) return StatusCode(500, "The error ocoured beacuse the datat is not accurate ");
+            dbUserBalanceSheet[userBalance.UserId] -= userBalance.Balance;
+            dbUserBalanceSheet[userBalance.OwedToUserId] += userBalance.Balance;
         }
 
-        return Ok("");
+        if (userBalanceSheet.Count != dbUserBalanceSheet.Count) return StatusCode(500, "The error occurred because the data is not accurate ");
+        foreach (var dbKey in dbUserBalanceSheet)
+        {
+            if (!userBalanceSheet.TryGetValue(dbKey.Key, out var value)) return StatusCode(500, "The error occurred because the data is not accurate ");
+            Console.WriteLine($"{dbKey.Key}: {dbKey.Value}, {value}");
+            if (dbKey.Value != value) return StatusCode(500, "The error occurred because the data is not accurate ");
+        }
+
+
+        return Ok("All Good");
     }
 }
