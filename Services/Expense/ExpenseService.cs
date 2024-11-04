@@ -12,7 +12,10 @@ public class ExpenseService : IExpenseService
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
     private readonly UserManager<CustomUsers> _userManager;
-    
+    private readonly string equalShareType = "EQUAL";
+    private readonly string unequalShareType = "UNEQUAL";
+    private readonly string percentageShareType = "PERCENTAGE";
+
 
     public ExpenseService(ILogger<ExpenseController> logger, AppDbContext context,
         UserManager<CustomUsers> userManager)
@@ -73,8 +76,7 @@ public class ExpenseService : IExpenseService
             _context.Expenses.Add(newExpense);
             await _context.SaveChangesAsync();
 
-            if (createExpenseDto.ShareType.Equals("equal", StringComparison.OrdinalIgnoreCase)
-                )
+            if (createExpenseDto.ShareType.Equals("equal", StringComparison.OrdinalIgnoreCase))
             {
                 if (createExpenseDto.PayerId != null)
                 {
@@ -86,22 +88,16 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
-                if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
-                {
-                    await EqualAndMultiPayer(createExpenseDto, group, newExpense);
-                    await transaction.CommitAsync();
-                    return new ExpenseResults<string>()
-                    {
-                        Success = true,
-                        Data = newExpense.Id,
-                    };
-                }
+
+                await EqualAndMultiPayer(createExpenseDto, group, newExpense);
+                await transaction.CommitAsync();
                 return new ExpenseResults<string>()
                 {
-                    Success = false,
-                    Errors = "Please provide at least one share",
+                    Success = true,
+                    Data = newExpense.Id,
                 };
             }
+
             if (createExpenseDto.ShareType.Equals("unequal", StringComparison.OrdinalIgnoreCase))
             {
                 if (createExpenseDto.PayerId != null)
@@ -114,22 +110,16 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
-                if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
-                {
-                    await UnequalAndMultiPayer(createExpenseDto, group, newExpense);
-                    await transaction.CommitAsync();
-                    return new ExpenseResults<string>()
-                    {
-                        Success = true,
-                        Data = newExpense.Id,
-                    };
-                }
+
+                await UnequalAndMultiPayer(createExpenseDto, group, newExpense);
+                await transaction.CommitAsync();
                 return new ExpenseResults<string>()
                 {
-                    Success = false,
-                    Errors = "Please provide at least one share",
+                    Success = true,
+                    Data = newExpense.Id,
                 };
             }
+
             if (createExpenseDto.ShareType.Equals("percentage", StringComparison.OrdinalIgnoreCase))
             {
                 if (createExpenseDto.PayerId != null)
@@ -142,20 +132,13 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
-                if(createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
-                {
-                    await PercentageAndMultiPayer(createExpenseDto, group, newExpense);
-                    await transaction.CommitAsync();
-                    return new ExpenseResults<string>()
-                    {
-                        Success = true,
-                        Data = newExpense.Id,
-                    };
-                }
+
+                await PercentageAndMultiPayer(createExpenseDto, group, newExpense);
+                await transaction.CommitAsync();
                 return new ExpenseResults<string>()
                 {
-                    Success = false,
-                    Errors = "Please provide at least one share",
+                    Success = true,
+                    Data = newExpense.Id,
                 };
             }
 
@@ -229,7 +212,7 @@ public class ExpenseService : IExpenseService
             var user = await _userManager.FindByIdAsync(ub.UserId);
             var owedTo = await _userManager.FindByIdAsync(ub.OwedToUserId);
 
-            if (user == null || owedTo == null)
+            if (user == null || owedTo == null || user.UserName == null || owedTo.UserName == null)
                 return new ExpenseResults<ReadTestExpenseDto>()
                 {
                     Success = false,
@@ -339,7 +322,6 @@ public class ExpenseService : IExpenseService
         };
     }
 
-
     private async Task EqualAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
     {
         if (createExpenseDto.Payers is null)
@@ -419,7 +401,7 @@ public class ExpenseService : IExpenseService
                     OwesUser = payerUser,
                     OwesUserId = payer.UserId,
                     AmountOwed = amountOwedFromPayer,
-                    ShareType = "EQUAL"
+                    ShareType = equalShareType
                 });
 
                 //finding a user balance if exists
@@ -527,7 +509,7 @@ public class ExpenseService : IExpenseService
                 OwesUser = user,
                 OwesUserId = payer.Id,
                 AmountOwed = sharedAmount,
-                ShareType = "EQUAL"
+                ShareType = equalShareType
             });
         }
 
@@ -613,7 +595,7 @@ public class ExpenseService : IExpenseService
                 User = user,
                 UserId = user.Id,
                 AmountOwed = member.Share,
-                ShareType = "UNEQUAL"
+                ShareType = unequalShareType
             });
         }
 
@@ -699,7 +681,7 @@ public class ExpenseService : IExpenseService
                     OwesUser = payerUser,
                     OwesUserId = payer.UserId,
                     AmountOwed = amountOwedFromPayer,
-                    ShareType = "EQUAL"
+                    ShareType = unequalShareType
                 });
 
                 //finding a user balance if exists
@@ -809,7 +791,7 @@ public class ExpenseService : IExpenseService
             {
                 Expense = newExpense,
                 ExpenseId = newExpense.Id,
-                ShareType = "PERCENTAGE",
+                ShareType = percentageShareType,
                 UserId = member.UserId,
                 User = user,
                 OwesUser = payer,
@@ -824,6 +806,135 @@ public class ExpenseService : IExpenseService
 
     private async Task PercentageAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
     {
-        
+        try
+        {
+            if (createExpenseDto.Payers is null || createExpenseDto.Payers.Count == 0)
+            {
+                throw new CustomException()
+                {
+                    Errors = "You must provide at least one payer",
+                    StatusCode = 400
+                };
+            }
+
+            var total = createExpenseDto.Payers.Sum(p => p.Share);
+            if (total != createExpenseDto.Amount)
+            {
+                throw new CustomException()
+                {
+                    Errors = "Total amount payed by payers does not match the total amount of expense",
+                    StatusCode = 400
+                };
+            }
+
+            var totalPercentage = createExpenseDto.ExpenseSharedMembers.Sum(e => e.Share);
+            if (totalPercentage != 100)
+            {
+                throw new CustomException()
+                {
+                    Errors = "The percentage distribution doesn't sum up to 100",
+                    StatusCode = 400
+                };
+            }
+
+            List<ExpenseShares> expenseSharesList = [];
+            List<ExpensePayers> expensePayersList = [];
+            foreach (var payer in createExpenseDto.Payers)
+            {
+                var payerUser = await _userManager.FindByIdAsync(payer.UserId) ?? throw new CustomException()
+                {
+                    Errors = "User does not exist",
+                    StatusCode = 400
+                };
+                expensePayersList.Add(new ExpensePayers
+                {
+                    PayerId = payerUser.Id,
+                    ExpenseId = newExpense.Id,
+                    Expense = newExpense,
+                    Payer = payerUser,
+                    AmountPaid = payer.Share
+                });
+                var payerShare = payer.Share;
+                var proportionOfDebtCovered = payerShare / total;
+                foreach (var member in createExpenseDto.ExpenseSharedMembers)
+                {
+                    if (payer.UserId == member.UserId)
+                    {
+                        continue;
+                    }
+
+                    var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+                    {
+                        Errors = "User does not exist",
+                        StatusCode = 400
+                    };
+                    var percentageOfShare = member.Share * total / (decimal)100;
+                    var amountOwedFromPayer = percentageOfShare * proportionOfDebtCovered;
+                    //creating expense share
+                    expenseSharesList.Add(new ExpenseShares
+                    {
+                        Expense = newExpense,
+                        ExpenseId = newExpense.Id,
+                        UserId = member.UserId,
+                        User = user,
+                        OwesUser = payerUser,
+                        OwesUserId = payer.UserId,
+                        AmountOwed = amountOwedFromPayer,
+                        ShareType = percentageShareType
+                    });
+
+                    //finding a user balance if exists
+                    var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
+                        b => b.UserId == member.UserId &&
+                             b.OwedToUserId == payer.UserId &&
+                             b.GroupId == group.Id
+                    );
+
+                    // if it doesn't exist create a new one with the owed amount
+                    if (userBalance is null)
+                    {
+                        var newUserBalance = new UserBalances
+                        {
+                            GroupId = group.Id,
+                            Group = group,
+                            UserId = member.UserId,
+                            OwedToUserId = payer.UserId,
+                            Balance = amountOwedFromPayer,
+                            User = user,
+                            OwedToUser = payerUser
+                        };
+                        await _context.UserBalances.AddAsync(newUserBalance);
+                    }
+
+                    //else add the owed amount to the previous amount stored
+                    else
+                    {
+                        userBalance.Balance += amountOwedFromPayer;
+                    }
+                }
+            }
+
+            await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
+            await _context.ExpensePayers.AddRangeAsync(expensePayersList);
+            await _context.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
     }
 }
