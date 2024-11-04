@@ -12,6 +12,7 @@ public class ExpenseService : IExpenseService
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
     private readonly UserManager<CustomUsers> _userManager;
+    
 
     public ExpenseService(ILogger<ExpenseController> logger, AppDbContext context,
         UserManager<CustomUsers> userManager)
@@ -72,7 +73,8 @@ public class ExpenseService : IExpenseService
             _context.Expenses.Add(newExpense);
             await _context.SaveChangesAsync();
 
-            if (createExpenseDto.ShareType.Equals("equal", StringComparison.OrdinalIgnoreCase))
+            if (createExpenseDto.ShareType.Equals("equal", StringComparison.OrdinalIgnoreCase)
+                )
             {
                 if (createExpenseDto.PayerId != null)
                 {
@@ -84,7 +86,7 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
-                else if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
+                if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
                 {
                     await EqualAndMultiPayer(createExpenseDto, group, newExpense);
                     await transaction.CommitAsync();
@@ -94,8 +96,13 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
+                return new ExpenseResults<string>()
+                {
+                    Success = false,
+                    Errors = "Please provide at least one share",
+                };
             }
-            else if (createExpenseDto.ShareType.Equals("unequal", StringComparison.OrdinalIgnoreCase))
+            if (createExpenseDto.ShareType.Equals("unequal", StringComparison.OrdinalIgnoreCase))
             {
                 if (createExpenseDto.PayerId != null)
                 {
@@ -107,7 +114,7 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
-                else if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
+                if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
                 {
                     await UnequalAndMultiPayer(createExpenseDto, group, newExpense);
                     await transaction.CommitAsync();
@@ -117,9 +124,39 @@ public class ExpenseService : IExpenseService
                         Data = newExpense.Id,
                     };
                 }
+                return new ExpenseResults<string>()
+                {
+                    Success = false,
+                    Errors = "Please provide at least one share",
+                };
             }
-            else if (createExpenseDto.ShareType.Equals("percentage", StringComparison.OrdinalIgnoreCase))
+            if (createExpenseDto.ShareType.Equals("percentage", StringComparison.OrdinalIgnoreCase))
             {
+                if (createExpenseDto.PayerId != null)
+                {
+                    await PercentageAndSinglePayer(createExpenseDto, group, newExpense);
+                    await transaction.CommitAsync();
+                    return new ExpenseResults<string>()
+                    {
+                        Success = true,
+                        Data = newExpense.Id,
+                    };
+                }
+                if(createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
+                {
+                    await PercentageAndMultiPayer(createExpenseDto, group, newExpense);
+                    await transaction.CommitAsync();
+                    return new ExpenseResults<string>()
+                    {
+                        Success = true,
+                        Data = newExpense.Id,
+                    };
+                }
+                return new ExpenseResults<string>()
+                {
+                    Success = false,
+                    Errors = "Please provide at least one share",
+                };
             }
 
             return new ExpenseResults<string>()
@@ -767,6 +804,7 @@ public class ExpenseService : IExpenseService
             {
                 userBalance.Balance += amountOfPercentage;
             }
+
             expenseSharesList.Add(new ExpenseShares()
             {
                 Expense = newExpense,
@@ -779,7 +817,13 @@ public class ExpenseService : IExpenseService
                 AmountOwed = amountOfPercentage
             });
         }
+
         await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
         await _context.SaveChangesAsync();
+    }
+
+    private async Task PercentageAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
+    {
+        
     }
 }
