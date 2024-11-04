@@ -53,4 +53,14 @@ public class ExpenseController : ControllerBase
         return StatusCode(expenseResult.StatusCode,
             new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
     }
+
+    [HttpGet]
+    [Route("all/{groupId}")]
+    public async Task<IActionResult> GetAllExpenses(string groupId)
+    {
+        var expenseResult = await _expenseService.GetAllExpenses(groupId);
+        return StatusCode(expenseResult.StatusCode,
+            new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
+        
+    }
 }

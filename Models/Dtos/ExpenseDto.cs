@@ -38,6 +38,15 @@ namespace Splitwise_Back.Models.Dtos
         public required string Description { get; set; }
         public required List<ReadExpenseShareDto> ExpenseShares { get; set; }
     }
+
+    public class ReadAllExpenseDto
+    {
+        public required string GroupId { get; set; }
+        public required string ExpenseId { get; set; }
+        public required decimal Amount { get; set; }
+        public required DateTime Date { get; set; }
+        public required string Description { get; set; }
+    }
     public class UpdateExpenseDto
     {
         public required string Description { get; set; }

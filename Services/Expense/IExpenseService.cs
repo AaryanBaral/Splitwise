@@ -7,4 +7,5 @@ public interface IExpenseService
 {
     Task<ExpenseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto);
     Task<ExpenseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId);
+    Task<ExpenseResults<List<ReadAllExpenseDto>>> GetAllExpenses(string groupId);
 }

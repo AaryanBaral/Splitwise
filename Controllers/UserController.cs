@@ -90,8 +90,8 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid payload"]
                 });
             }
-            var existing_user = await _userManager.FindByEmailAsync(userLogin.Email);
-            if (existing_user is null)
+            var existingUser = await _userManager.FindByEmailAsync(userLogin.Email);
+            if (existingUser is null)
             {
                 return BadRequest(new AuthResults()
                 {
@@ -99,7 +99,7 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Email Not Registered"]
                 });
             }
-            var isCorrect = await _userManager.CheckPasswordAsync(existing_user, userLogin.Password);
+            var isCorrect = await _userManager.CheckPasswordAsync(existingUser, userLogin.Password);
             if (!isCorrect)
             {
                 return BadRequest(new AuthResults()
@@ -108,9 +108,9 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid Passwored"]
                 });
             }
-            var Result = await _tokenService.GenerateJwtToken(existing_user);
-            Result.Id = existing_user.Id;
-            return Ok(Result);
+            var result = await _tokenService.GenerateJwtToken(existingUser);
+            result.Id = existingUser.Id;
+            return Ok(result);
         }
 
         [HttpDelete]
@@ -181,6 +181,8 @@ namespace Splitwise_Back.Controllers
         {
             return Ok(await _userManager.Users.ToListAsync());
         }
+        
+        
         [HttpGet]
         [Route("{id}")]
         public async Task<IActionResult> GetUserById(string id)
