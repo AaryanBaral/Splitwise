@@ -106,7 +106,8 @@ public class ExpenseService : IExpenseService
                         Success = true,
                         Data = newExpense.Id,
                     };
-                }else if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
+                }
+                else if (createExpenseDto.Payers != null && createExpenseDto.Payers.Count != 0)
                 {
                     await UnequalAndMultiPayer(createExpenseDto, group, newExpense);
                     await transaction.CommitAsync();
@@ -591,13 +592,13 @@ public class ExpenseService : IExpenseService
                 Errors = "You must provide at least one payer",
                 StatusCode = 400,
             };
-        var memberTotal = createExpenseDto.ExpenseSharedMembers.Sum(m=>m.Share);
+        var memberTotal = createExpenseDto.ExpenseSharedMembers.Sum(m => m.Share);
         if (memberTotal != createExpenseDto.Amount)
             throw new CustomException()
             {
                 Errors = "Share split doesnt match the total amount",
                 StatusCode = 400
-            };      
+            };
         var total = createExpenseDto.Payers.Sum(e => e.Share);
         if (total != createExpenseDto.Amount)
             throw new CustomException()
@@ -694,8 +695,91 @@ public class ExpenseService : IExpenseService
                 }
             }
         }
+
         await _context.ExpensePayers.AddRangeAsync(expensePayersList);
         await _context.ExpenseShares.AddRangeAsync(expenseShares);
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task PercentageAndSinglePayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
+    {
+        var total = createExpenseDto.Amount;
+        var totalPercentage = createExpenseDto.ExpenseSharedMembers.Sum(e => e.Share);
+        if (totalPercentage != 100)
+        {
+            throw new CustomException()
+            {
+                Errors = "The percentage distribution doesn't sum up to 100",
+                StatusCode = 400
+            };
+        }
+
+        if (createExpenseDto.PayerId is null)
+        {
+            throw new CustomException()
+            {
+                Errors = "You must provide at least one payer",
+                StatusCode = 400,
+            };
+        }
+
+        var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
+        {
+            Errors = "User does not exist",
+            StatusCode = 400
+        };
+        var expensePayer = new ExpensePayers()
+        {
+            PayerId = payer.Id,
+            Payer = payer,
+            AmountPaid = createExpenseDto.Amount,
+            Expense = newExpense,
+            ExpenseId = newExpense.Id,
+        };
+        List<ExpenseShares> expenseSharesList = [];
+        foreach (var member in createExpenseDto.ExpenseSharedMembers)
+        {
+            var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+            {
+                Errors = "User does not exist",
+                StatusCode = 400
+            };
+            var amountOfPercentage = member.Share * total / (decimal)100;
+            var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub => ub.UserId == member.UserId &&
+                ub.OwedToUserId == payer.Id &&
+                ub.GroupId == group.Id
+            );
+            if (userBalance is null)
+            {
+                var newUserBalance = new UserBalances()
+                {
+                    GroupId = group.Id,
+                    Group = group,
+                    OwedToUser = payer,
+                    OwedToUserId = payer.Id,
+                    UserId = member.UserId,
+                    User = user,
+                    Balance = amountOfPercentage
+                };
+                _context.UserBalances.Add(newUserBalance);
+            }
+            else
+            {
+                userBalance.Balance += amountOfPercentage;
+            }
+            expenseSharesList.Add(new ExpenseShares()
+            {
+                Expense = newExpense,
+                ExpenseId = newExpense.Id,
+                ShareType = "PERCENTAGE",
+                UserId = member.UserId,
+                User = user,
+                OwesUser = payer,
+                OwesUserId = payer.Id,
+                AmountOwed = amountOfPercentage
+            });
+        }
+        await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
         await _context.SaveChangesAsync();
     }
 }
