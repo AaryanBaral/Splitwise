@@ -12,9 +12,9 @@ public class ExpenseService : IExpenseService
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
     private readonly UserManager<CustomUsers> _userManager;
-    private readonly string equalShareType = "EQUAL";
-    private readonly string unequalShareType = "UNEQUAL";
-    private readonly string percentageShareType = "PERCENTAGE";
+    private const string EqualShareType = "EQUAL";
+    private const string UnequalShareType = "UNEQUAL";
+    private const string PercentageShareType = "PERCENTAGE";
 
 
     public ExpenseService(ILogger<ExpenseController> logger, AppDbContext context,
@@ -324,484 +324,591 @@ public class ExpenseService : IExpenseService
 
     private async Task EqualAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
     {
-        if (createExpenseDto.Payers is null)
-            throw new CustomException()
-            {
-                Errors = "You must provide at least one payer",
-                StatusCode = 400
-            };
-        var sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
-        var totalPaid = createExpenseDto.Payers.Sum(p => p.Share);
-        if (totalPaid != createExpenseDto.Amount)
+        try
         {
-            throw new CustomException()
-            {
-                Errors = "The total amount doesnt match the total amount paid by the users",
-                StatusCode = 400
-            };
-        }
-
-        var payerIds = createExpenseDto.Payers.Select(p => p.UserId).ToList();
-        var payerInGroups = group.GroupMembers
-            .Where(gm => payerIds.Contains(gm.UserId))
-            .ToList();
-        if (payerIds.Count != payerInGroups.Count)
-        {
-            throw new CustomException()
-            {
-                Errors = "One or more payers are not in the group",
-                StatusCode = 400
-            };
-        }
-
-        List<ExpensePayers> expensePayersList = [];
-        List<ExpenseShares> expenseShares = [];
-
-        // for each payer in payer expense each member owes to the payer
-        foreach (var payer in createExpenseDto.Payers)
-        {
-            var payerUser = await _userManager.FindByIdAsync(payer.UserId);
-            if (payerUser is null)
+            if (createExpenseDto.Payers is null)
                 throw new CustomException()
                 {
-                    Errors = "Payer user does not exist",
+                    Errors = "You must provide at least one payer",
                     StatusCode = 400
                 };
-            expensePayersList.Add(new ExpensePayers
+            var sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
+            var totalPaid = createExpenseDto.Payers.Sum(p => p.Share);
+            if (totalPaid != createExpenseDto.Amount)
             {
-                PayerId = payerUser.Id,
-                ExpenseId = newExpense.Id,
-                Expense = newExpense,
-                Payer = payerUser,
-                AmountPaid = payer.Share
-            });
-            var payerShare = payer.Share;
-            var proportionOfDebtCovered = payerShare / totalPaid;
-            foreach (var member in createExpenseDto.ExpenseSharedMembers)
-            {
-                if (payer.UserId == member.UserId)
+                throw new CustomException()
                 {
-                    continue;
-                }
-
-                var memberUser = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
-                {
-                    Errors = "user does not exist",
+                    Errors = "The total amount doesnt match the total amount paid by the users",
                     StatusCode = 400
                 };
-                var amountOwedFromPayer = sharedAmount * proportionOfDebtCovered;
+            }
 
-                //creating expense share
-                expenseShares.Add(new ExpenseShares
+            var payerIds = createExpenseDto.Payers.Select(p => p.UserId).ToList();
+            var payerInGroups = group.GroupMembers
+                .Where(gm => payerIds.Contains(gm.UserId))
+                .ToList();
+            if (payerIds.Count != payerInGroups.Count)
+            {
+                throw new CustomException()
                 {
-                    Expense = newExpense,
-                    ExpenseId = newExpense.Id,
-                    UserId = member.UserId,
-                    User = memberUser,
-                    OwesUser = payerUser,
-                    OwesUserId = payer.UserId,
-                    AmountOwed = amountOwedFromPayer,
-                    ShareType = equalShareType
-                });
+                    Errors = "One or more payers are not in the group",
+                    StatusCode = 400
+                };
+            }
 
-                //finding a user balance if exists
-                var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
-                    b => b.UserId == member.UserId &&
-                         b.OwedToUserId == payer.UserId &&
-                         b.GroupId == group.Id
-                );
+            List<ExpensePayers> expensePayersList = [];
+            List<ExpenseShares> expenseShares = [];
 
-                // if it doesn't exist create a new one with the owed amount
-                if (userBalance is null)
-                {
-                    var newUserBalance = new UserBalances
+            // for each payer in payer expense each member owes to the payer
+            foreach (var payer in createExpenseDto.Payers)
+            {
+                var payerUser = await _userManager.FindByIdAsync(payer.UserId);
+                if (payerUser is null)
+                    throw new CustomException()
                     {
-                        GroupId = group.Id,
-                        Group = group,
-                        UserId = member.UserId,
-                        OwedToUserId = payer.UserId,
-                        Balance = amountOwedFromPayer,
-                        User = memberUser,
-                        OwedToUser = payerUser
+                        Errors = "Payer user does not exist",
+                        StatusCode = 400
                     };
-                    await _context.UserBalances.AddAsync(newUserBalance);
-                }
-
-                //else add the owed amount to the previous amount stored
-                else
+                expensePayersList.Add(new ExpensePayers
                 {
-                    userBalance.Balance += amountOwedFromPayer;
+                    PayerId = payerUser.Id,
+                    ExpenseId = newExpense.Id,
+                    Expense = newExpense,
+                    Payer = payerUser,
+                    AmountPaid = payer.Share
+                });
+                var payerShare = payer.Share;
+                var proportionOfDebtCovered = payerShare / totalPaid;
+                foreach (var member in createExpenseDto.ExpenseSharedMembers)
+                {
+                    if (payer.UserId == member.UserId)
+                    {
+                        continue;
+                    }
+
+                    var memberUser = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+                    {
+                        Errors = "user does not exist",
+                        StatusCode = 400
+                    };
+                    var amountOwedFromPayer = sharedAmount * proportionOfDebtCovered;
+
+                    //creating expense share
+                    expenseShares.Add(new ExpenseShares
+                    {
+                        Expense = newExpense,
+                        ExpenseId = newExpense.Id,
+                        UserId = member.UserId,
+                        User = memberUser,
+                        OwesUser = payerUser,
+                        OwesUserId = payer.UserId,
+                        AmountOwed = amountOwedFromPayer,
+                        ShareType = EqualShareType
+                    });
+
+                    //finding a user balance if exists
+                    var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
+                        b => b.UserId == member.UserId &&
+                             b.OwedToUserId == payer.UserId &&
+                             b.GroupId == group.Id
+                    );
+
+                    // if it doesn't exist create a new one with the owed amount
+                    if (userBalance is null)
+                    {
+                        var newUserBalance = new UserBalances
+                        {
+                            GroupId = group.Id,
+                            Group = group,
+                            UserId = member.UserId,
+                            OwedToUserId = payer.UserId,
+                            Balance = amountOwedFromPayer,
+                            User = memberUser,
+                            OwedToUser = payerUser
+                        };
+                        await _context.UserBalances.AddAsync(newUserBalance);
+                    }
+
+                    //else add the owed amount to the previous amount stored
+                    else
+                    {
+                        userBalance.Balance += amountOwedFromPayer;
+                    }
                 }
             }
+
+            await _context.ExpenseShares.AddRangeAsync(expenseShares);
+            await _context.ExpensePayers.AddRangeAsync(expensePayersList);
+
+            await _context.SaveChangesAsync();
         }
-
-        await _context.ExpenseShares.AddRangeAsync(expenseShares);
-        await _context.ExpensePayers.AddRangeAsync(expensePayersList);
-
-        await _context.SaveChangesAsync();
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
     }
 
     private async Task EqualAndSinglePayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
     {
-        if (createExpenseDto.PayerId is null)
-            throw new CustomException()
-            {
-                Errors = "You must provide at least one payer",
-                StatusCode = 400
-            };
-        var sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
-        var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
+        try
         {
-            Errors = "Payer does not exist",
-            StatusCode = 400
-        };
-        await _context.ExpensePayers.AddAsync(new ExpensePayers()
-        {
-            Expense = newExpense,
-            ExpenseId = newExpense.Id,
-            Payer = payer,
-            PayerId = payer.Id,
-            AmountPaid = createExpenseDto.Amount
-        });
-        List<ExpenseShares> expenseShares = [];
-        foreach (var member in createExpenseDto.ExpenseSharedMembers)
-        {
-            var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
-            {
-                Errors = "User does not exist",
-                StatusCode = 400
-            };
-            var userBalance = await _context.UserBalances
-                .FirstOrDefaultAsync(
-                    b => b.UserId == member.UserId &&
-                         b.OwedToUserId == payer.Id &&
-                         b.GroupId == createExpenseDto.GroupId);
-
-            //check if the User Balance exists or not
-            if (userBalance is null)
-            {
-                var newBalanceEntry = new UserBalances
+            if (createExpenseDto.PayerId is null)
+                throw new CustomException()
                 {
-                    GroupId = group.Id,
-                    Group = group,
-                    UserId = member.UserId,
-                    OwedToUserId = payer.Id,
-                    Balance = sharedAmount,
-                    User = user,
-                    OwedToUser = payer
-                };
-                _context.UserBalances.Add(newBalanceEntry);
-                await _context.SaveChangesAsync();
-            }
-
-            //if exists do calculations
-            else
-            {
-                userBalance.Balance += sharedAmount;
-            }
-
-            expenseShares.Add(new ExpenseShares()
-            {
-                Expense = newExpense,
-                ExpenseId = newExpense.Id,
-                UserId = member.UserId,
-                User = user,
-                OwesUser = user,
-                OwesUserId = payer.Id,
-                AmountOwed = sharedAmount,
-                ShareType = equalShareType
-            });
-        }
-
-        await _context.ExpenseShares.AddRangeAsync(expenseShares);
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task UnequalAndSinglePayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
-    {
-        if (createExpenseDto.ExpenseSharedMembers.Sum(m => m.Share) != createExpenseDto.Amount)
-        {
-            throw new CustomException()
-            {
-                Errors = "Share split doesnt match the total amount",
-                StatusCode = 400
-            };
-        }
-
-        if (createExpenseDto.PayerId is null)
-            throw new CustomException()
-            {
-                Errors = "You must provide at least one payer",
-                StatusCode = 400
-            };
-        var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
-        {
-            Errors = "User does not exist",
-            StatusCode = 400
-        };
-        var expensePayer = new ExpensePayers()
-        {
-            Payer = payer,
-            PayerId = payer.Id,
-            Expense = newExpense,
-            ExpenseId = newExpense.Id,
-            AmountPaid = createExpenseDto.Amount
-        };
-        _context.ExpensePayers.Add(expensePayer);
-        await _context.SaveChangesAsync();
-
-        List<ExpenseShares> expenseShares = [];
-        foreach (var member in createExpenseDto.ExpenseSharedMembers)
-        {
-            var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
-            {
-                Errors = "User does not exist",
-                StatusCode = 400
-            };
-            var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub =>
-                ub.UserId == member.UserId &&
-                ub.OwedToUserId == payer.Id &&
-                ub.GroupId == createExpenseDto.GroupId);
-
-            //check if the User Balance exists or not
-            if (userBalance is null)
-            {
-                var newBalanceEntry = new UserBalances
-                {
-                    GroupId = group.Id,
-                    Group = group,
-                    UserId = member.UserId,
-                    OwedToUserId = payer.Id,
-                    Balance = member.Share,
-                    User = user,
-                    OwedToUser = payer
-                };
-                _context.UserBalances.Add(newBalanceEntry);
-                await _context.SaveChangesAsync();
-            }
-
-            //if exists do calculations
-            else
-            {
-                userBalance.Balance += member.Share;
-            }
-
-            expenseShares.Add(new ExpenseShares()
-            {
-                Expense = newExpense,
-                ExpenseId = newExpense.Id,
-                OwesUser = payer,
-                OwesUserId = payer.Id,
-                User = user,
-                UserId = user.Id,
-                AmountOwed = member.Share,
-                ShareType = unequalShareType
-            });
-        }
-
-        await _context.ExpenseShares.AddRangeAsync(expenseShares);
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task UnequalAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
-    {
-        if (createExpenseDto.Payers is null || createExpenseDto.Payers.Count == 0)
-            throw new CustomException()
-            {
-                Errors = "You must provide at least one payer",
-                StatusCode = 400,
-            };
-        var memberTotal = createExpenseDto.ExpenseSharedMembers.Sum(m => m.Share);
-        if (memberTotal != createExpenseDto.Amount)
-            throw new CustomException()
-            {
-                Errors = "Share split doesnt match the total amount",
-                StatusCode = 400
-            };
-        var total = createExpenseDto.Payers.Sum(e => e.Share);
-        if (total != createExpenseDto.Amount)
-            throw new CustomException()
-            {
-                Errors = "The payer payed amount doesn't match the total amount",
-                StatusCode = 400
-            };
-        var payerIds = createExpenseDto.Payers.Select(p => p.UserId).ToList();
-        var payerInGroups = group.GroupMembers
-            .Where(gm => payerIds.Contains(gm.UserId))
-            .ToList();
-        if (payerIds.Count != payerInGroups.Count)
-        {
-            throw new CustomException()
-            {
-                Errors = "One or more payers are not in the group",
-                StatusCode = 400
-            };
-        }
-
-        List<ExpensePayers> expensePayersList = [];
-        List<ExpenseShares> expenseShares = [];
-        foreach (var payer in createExpenseDto.Payers)
-        {
-            var payerUser = await _userManager.FindByIdAsync(payer.UserId) ?? throw new CustomException()
-            {
-                Errors = "User does not exist",
-                StatusCode = 400
-            };
-            expensePayersList.Add(new ExpensePayers
-            {
-                PayerId = payerUser.Id,
-                ExpenseId = newExpense.Id,
-                Expense = newExpense,
-                Payer = payerUser,
-                AmountPaid = payer.Share
-            });
-            var payerShare = payer.Share;
-            var proportionOfDebtCovered = payerShare / total;
-            foreach (var member in createExpenseDto.ExpenseSharedMembers)
-            {
-                if (payer.UserId == member.UserId)
-                {
-                    continue;
-                }
-
-                var memberUser = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
-                {
-                    Errors = "user does not exist",
+                    Errors = "You must provide at least one payer",
                     StatusCode = 400
                 };
-                var amountOwedFromPayer = member.Share * proportionOfDebtCovered;
-
-                //creating expense share
-                expenseShares.Add(new ExpenseShares
+            var sharedAmount = createExpenseDto.Amount / createExpenseDto.ExpenseSharedMembers.Count;
+            var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
+            {
+                Errors = "Payer does not exist",
+                StatusCode = 400
+            };
+            await _context.ExpensePayers.AddAsync(new ExpensePayers()
+            {
+                Expense = newExpense,
+                ExpenseId = newExpense.Id,
+                Payer = payer,
+                PayerId = payer.Id,
+                AmountPaid = createExpenseDto.Amount
+            });
+            List<ExpenseShares> expenseShares = [];
+            foreach (var member in createExpenseDto.ExpenseSharedMembers)
+            {
+                var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
                 {
-                    Expense = newExpense,
-                    ExpenseId = newExpense.Id,
-                    UserId = member.UserId,
-                    User = memberUser,
-                    OwesUser = payerUser,
-                    OwesUserId = payer.UserId,
-                    AmountOwed = amountOwedFromPayer,
-                    ShareType = unequalShareType
-                });
+                    Errors = "User does not exist",
+                    StatusCode = 400
+                };
+                var userBalance = await _context.UserBalances
+                    .FirstOrDefaultAsync(
+                        b => b.UserId == member.UserId &&
+                             b.OwedToUserId == payer.Id &&
+                             b.GroupId == createExpenseDto.GroupId);
 
-                //finding a user balance if exists
-                var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
-                    b => b.UserId == member.UserId &&
-                         b.OwedToUserId == payer.UserId &&
-                         b.GroupId == group.Id
-                );
-
-                // if it doesn't exist create a new one with the owed amount
+                //check if the User Balance exists or not
                 if (userBalance is null)
                 {
-                    var newUserBalance = new UserBalances
+                    var newBalanceEntry = new UserBalances
                     {
                         GroupId = group.Id,
                         Group = group,
                         UserId = member.UserId,
-                        OwedToUserId = payer.UserId,
-                        Balance = amountOwedFromPayer,
-                        User = memberUser,
-                        OwedToUser = payerUser
+                        OwedToUserId = payer.Id,
+                        Balance = sharedAmount,
+                        User = user,
+                        OwedToUser = payer
                     };
-                    await _context.UserBalances.AddAsync(newUserBalance);
+                    _context.UserBalances.Add(newBalanceEntry);
+                    await _context.SaveChangesAsync();
                 }
 
-                //else add the owed amount to the previous amount stored
+                //if exists do calculations
                 else
                 {
-                    userBalance.Balance += amountOwedFromPayer;
+                    userBalance.Balance += sharedAmount;
                 }
-            }
-        }
 
-        await _context.ExpensePayers.AddRangeAsync(expensePayersList);
-        await _context.ExpenseShares.AddRangeAsync(expenseShares);
-        await _context.SaveChangesAsync();
+                expenseShares.Add(new ExpenseShares()
+                {
+                    Expense = newExpense,
+                    ExpenseId = newExpense.Id,
+                    UserId = member.UserId,
+                    User = user,
+                    OwesUser = user,
+                    OwesUserId = payer.Id,
+                    AmountOwed = sharedAmount,
+                    ShareType = EqualShareType
+                });
+            }
+
+            await _context.ExpenseShares.AddRangeAsync(expenseShares);
+            await _context.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
     }
 
-    private async Task PercentageAndSinglePayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
+    private async Task UnequalAndSinglePayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
     {
-        var total = createExpenseDto.Amount;
-        var totalPercentage = createExpenseDto.ExpenseSharedMembers.Sum(e => e.Share);
-        if (totalPercentage != 100)
+        try
         {
-            throw new CustomException()
+            if (createExpenseDto.ExpenseSharedMembers.Sum(m => m.Share) != createExpenseDto.Amount)
             {
-                Errors = "The percentage distribution doesn't sum up to 100",
-                StatusCode = 400
-            };
-        }
+                throw new CustomException()
+                {
+                    Errors = "Share split doesnt match the total amount",
+                    StatusCode = 400
+                };
+            }
 
-        if (createExpenseDto.PayerId is null)
-        {
-            throw new CustomException()
-            {
-                Errors = "You must provide at least one payer",
-                StatusCode = 400,
-            };
-        }
-
-        var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
-        {
-            Errors = "User does not exist",
-            StatusCode = 400
-        };
-        var expensePayer = new ExpensePayers()
-        {
-            PayerId = payer.Id,
-            Payer = payer,
-            AmountPaid = createExpenseDto.Amount,
-            Expense = newExpense,
-            ExpenseId = newExpense.Id,
-        };
-        List<ExpenseShares> expenseSharesList = [];
-        foreach (var member in createExpenseDto.ExpenseSharedMembers)
-        {
-            var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+            if (createExpenseDto.PayerId is null)
+                throw new CustomException()
+                {
+                    Errors = "You must provide at least one payer",
+                    StatusCode = 400
+                };
+            var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
             {
                 Errors = "User does not exist",
                 StatusCode = 400
             };
-            var amountOfPercentage = member.Share * total / (decimal)100;
-            var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub => ub.UserId == member.UserId &&
-                ub.OwedToUserId == payer.Id &&
-                ub.GroupId == group.Id
-            );
-            if (userBalance is null)
+            var expensePayer = new ExpensePayers()
             {
-                var newUserBalance = new UserBalances()
-                {
-                    GroupId = group.Id,
-                    Group = group,
-                    OwedToUser = payer,
-                    OwedToUserId = payer.Id,
-                    UserId = member.UserId,
-                    User = user,
-                    Balance = amountOfPercentage
-                };
-                _context.UserBalances.Add(newUserBalance);
-            }
-            else
-            {
-                userBalance.Balance += amountOfPercentage;
-            }
-
-            expenseSharesList.Add(new ExpenseShares()
-            {
+                Payer = payer,
+                PayerId = payer.Id,
                 Expense = newExpense,
                 ExpenseId = newExpense.Id,
-                ShareType = percentageShareType,
-                UserId = member.UserId,
-                User = user,
-                OwesUser = payer,
-                OwesUserId = payer.Id,
-                AmountOwed = amountOfPercentage
-            });
-        }
+                AmountPaid = createExpenseDto.Amount
+            };
+            _context.ExpensePayers.Add(expensePayer);
+            await _context.SaveChangesAsync();
 
-        await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
-        await _context.SaveChangesAsync();
+            List<ExpenseShares> expenseShares = [];
+            foreach (var member in createExpenseDto.ExpenseSharedMembers)
+            {
+                var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+                {
+                    Errors = "User does not exist",
+                    StatusCode = 400
+                };
+                var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub =>
+                    ub.UserId == member.UserId &&
+                    ub.OwedToUserId == payer.Id &&
+                    ub.GroupId == createExpenseDto.GroupId);
+
+                //check if the User Balance exists or not
+                if (userBalance is null)
+                {
+                    var newBalanceEntry = new UserBalances
+                    {
+                        GroupId = group.Id,
+                        Group = group,
+                        UserId = member.UserId,
+                        OwedToUserId = payer.Id,
+                        Balance = member.Share,
+                        User = user,
+                        OwedToUser = payer
+                    };
+                    _context.UserBalances.Add(newBalanceEntry);
+                    await _context.SaveChangesAsync();
+                }
+
+                //if exists do calculations
+                else
+                {
+                    userBalance.Balance += member.Share;
+                }
+
+                expenseShares.Add(new ExpenseShares()
+                {
+                    Expense = newExpense,
+                    ExpenseId = newExpense.Id,
+                    OwesUser = payer,
+                    OwesUserId = payer.Id,
+                    User = user,
+                    UserId = user.Id,
+                    AmountOwed = member.Share,
+                    ShareType = UnequalShareType
+                });
+            }
+
+            await _context.ExpenseShares.AddRangeAsync(expenseShares);
+            await _context.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
+    }
+
+    private async Task UnequalAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
+    {
+        try
+        {
+            if (createExpenseDto.Payers is null || createExpenseDto.Payers.Count == 0)
+                throw new CustomException()
+                {
+                    Errors = "You must provide at least one payer",
+                    StatusCode = 400,
+                };
+            var memberTotal = createExpenseDto.ExpenseSharedMembers.Sum(m => m.Share);
+            if (memberTotal != createExpenseDto.Amount)
+                throw new CustomException()
+                {
+                    Errors = "Share split doesnt match the total amount",
+                    StatusCode = 400
+                };
+            var total = createExpenseDto.Payers.Sum(e => e.Share);
+            if (total != createExpenseDto.Amount)
+                throw new CustomException()
+                {
+                    Errors = "The payer payed amount doesn't match the total amount",
+                    StatusCode = 400
+                };
+            var payerIds = createExpenseDto.Payers.Select(p => p.UserId).ToList();
+            var payerInGroups = group.GroupMembers
+                .Where(gm => payerIds.Contains(gm.UserId))
+                .ToList();
+            if (payerIds.Count != payerInGroups.Count)
+            {
+                throw new CustomException()
+                {
+                    Errors = "One or more payers are not in the group",
+                    StatusCode = 400
+                };
+            }
+
+            List<ExpensePayers> expensePayersList = [];
+            List<ExpenseShares> expenseShares = [];
+            foreach (var payer in createExpenseDto.Payers)
+            {
+                var payerUser = await _userManager.FindByIdAsync(payer.UserId) ?? throw new CustomException()
+                {
+                    Errors = "User does not exist",
+                    StatusCode = 400
+                };
+                expensePayersList.Add(new ExpensePayers
+                {
+                    PayerId = payerUser.Id,
+                    ExpenseId = newExpense.Id,
+                    Expense = newExpense,
+                    Payer = payerUser,
+                    AmountPaid = payer.Share
+                });
+                var payerShare = payer.Share;
+                var proportionOfDebtCovered = payerShare / total;
+                foreach (var member in createExpenseDto.ExpenseSharedMembers)
+                {
+                    if (payer.UserId == member.UserId)
+                    {
+                        continue;
+                    }
+
+                    var memberUser = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+                    {
+                        Errors = "user does not exist",
+                        StatusCode = 400
+                    };
+                    var amountOwedFromPayer = member.Share * proportionOfDebtCovered;
+
+                    //creating expense share
+                    expenseShares.Add(new ExpenseShares
+                    {
+                        Expense = newExpense,
+                        ExpenseId = newExpense.Id,
+                        UserId = member.UserId,
+                        User = memberUser,
+                        OwesUser = payerUser,
+                        OwesUserId = payer.UserId,
+                        AmountOwed = amountOwedFromPayer,
+                        ShareType = UnequalShareType
+                    });
+
+                    //finding a user balance if exists
+                    var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
+                        b => b.UserId == member.UserId &&
+                             b.OwedToUserId == payer.UserId &&
+                             b.GroupId == group.Id
+                    );
+
+                    // if it doesn't exist create a new one with the owed amount
+                    if (userBalance is null)
+                    {
+                        var newUserBalance = new UserBalances
+                        {
+                            GroupId = group.Id,
+                            Group = group,
+                            UserId = member.UserId,
+                            OwedToUserId = payer.UserId,
+                            Balance = amountOwedFromPayer,
+                            User = memberUser,
+                            OwedToUser = payerUser
+                        };
+                        await _context.UserBalances.AddAsync(newUserBalance);
+                    }
+
+                    //else add the owed amount to the previous amount stored
+                    else
+                    {
+                        userBalance.Balance += amountOwedFromPayer;
+                    }
+                }
+            }
+
+            await _context.ExpensePayers.AddRangeAsync(expensePayersList);
+            await _context.ExpenseShares.AddRangeAsync(expenseShares);
+            await _context.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
+    }
+
+    private async Task PercentageAndSinglePayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
+    {
+        try
+        {
+            var total = createExpenseDto.Amount;
+            var totalPercentage = createExpenseDto.ExpenseSharedMembers.Sum(e => e.Share);
+            if (totalPercentage != 100)
+            {
+                throw new CustomException()
+                {
+                    Errors = "The percentage distribution doesn't sum up to 100",
+                    StatusCode = 400
+                };
+            }
+
+            if (createExpenseDto.PayerId is null)
+            {
+                throw new CustomException()
+                {
+                    Errors = "You must provide at least one payer",
+                    StatusCode = 400,
+                };
+            }
+
+            var payer = await _userManager.FindByIdAsync(createExpenseDto.PayerId) ?? throw new CustomException()
+            {
+                Errors = "User does not exist",
+                StatusCode = 400
+            };
+            var expensePayer = new ExpensePayers()
+            {
+                PayerId = payer.Id,
+                Payer = payer,
+                AmountPaid = createExpenseDto.Amount,
+                Expense = newExpense,
+                ExpenseId = newExpense.Id,
+            };
+            _context.ExpensePayers.Add(expensePayer);
+            await _context.SaveChangesAsync();
+            List<ExpenseShares> expenseSharesList = [];
+            foreach (var member in createExpenseDto.ExpenseSharedMembers)
+            {
+                var user = await _userManager.FindByIdAsync(member.UserId) ?? throw new CustomException()
+                {
+                    Errors = "User does not exist",
+                    StatusCode = 400
+                };
+                var amountOfPercentage = member.Share * total / (decimal)100;
+                var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub => ub.UserId == member.UserId &&
+                    ub.OwedToUserId == payer.Id &&
+                    ub.GroupId == group.Id
+                );
+                if (userBalance is null)
+                {
+                    var newUserBalance = new UserBalances()
+                    {
+                        GroupId = group.Id,
+                        Group = group,
+                        OwedToUser = payer,
+                        OwedToUserId = payer.Id,
+                        UserId = member.UserId,
+                        User = user,
+                        Balance = amountOfPercentage
+                    };
+                    _context.UserBalances.Add(newUserBalance);
+                }
+                else
+                {
+                    userBalance.Balance += amountOfPercentage;
+                }
+
+                expenseSharesList.Add(new ExpenseShares()
+                {
+                    Expense = newExpense,
+                    ExpenseId = newExpense.Id,
+                    ShareType = PercentageShareType,
+                    UserId = member.UserId,
+                    User = user,
+                    OwesUser = payer,
+                    OwesUserId = payer.Id,
+                    AmountOwed = amountOfPercentage
+                });
+            }
+
+            await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
+            await _context.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
     }
 
     private async Task PercentageAndMultiPayer(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
@@ -880,7 +987,7 @@ public class ExpenseService : IExpenseService
                         OwesUser = payerUser,
                         OwesUserId = payer.UserId,
                         AmountOwed = amountOwedFromPayer,
-                        ShareType = percentageShareType
+                        ShareType = PercentageShareType
                     });
 
                     //finding a user balance if exists

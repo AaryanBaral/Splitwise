@@ -46,7 +46,7 @@ public class GroupController : Controller
             return NotFound("Creator user not found");
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             Groups newGroup = new()
@@ -116,23 +116,23 @@ public class GroupController : Controller
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var AllGroups = await _context.Groups
+        var allGroups = await _context.Groups
         .Include(g => g.CreatedByUser)
         .Include(g => g.GroupMembers)
         .ToListAsync();
-        if (AllGroups is null || AllGroups.Count == 0)
+        if (allGroups.Count == 0)
         {
             return NotFound("No Group Exists");
         }
 
-        var readGroupDto = AllGroups.Select(g => new ReadGroupDto
+        var readGroupDto = allGroups.Select(g => new ReadGroupDto
         {
             Id = g.Id,
             GroupName = g.GroupName,
             Description = g.Description,
             DateCreated = g.DateCreated,
             CreatedByUserId = g.CreatedByUserId,
-            GroupMembers = g.GroupMembers.Select(g => g.UserId).ToList(),
+            GroupMembers = g.GroupMembers.Select(group => group.UserId).ToList(),
             CreatedByUser = new AbstractReadUserDto()
             {
                 UserName = g.CreatedByUser.UserName,
@@ -162,7 +162,7 @@ public class GroupController : Controller
             Description = g.Description,
             DateCreated = g.DateCreated,
             CreatedByUserId = g.CreatedByUserId,
-            GroupMembers = g.GroupMembers.Select(g => g.UserId).ToList(),
+            GroupMembers = g.GroupMembers.Select(group => group.UserId).ToList(),
             CreatedByUser = new AbstractReadUserDto()
             {
                 UserName = g.CreatedByUser.UserName,
@@ -194,7 +194,7 @@ public class GroupController : Controller
 
         if (groupAdminId is null)
         {
-            return BadRequest("Group dosent have any admin");
+            return BadRequest("Group doesn't have any admin");
         }
 
         if (groupAdminId != userId)
@@ -202,7 +202,11 @@ public class GroupController : Controller
             return StatusCode(401, "Only group Admin can delete the group");
         }
 
-        var isGroupDeleted = await _context.Groups
+        var userBalances = await _context.UserBalances.Where(ub => ub.GroupId == id).ToListAsync();
+        var listOfBalancesNotSettled = userBalances.Select(ub => ub.Balance != 0).ToList();
+        if (listOfBalancesNotSettled.Count != 0) return BadRequest("Please settle the group before deleting it");
+
+       await _context.Groups
         .Where(g => g.Id == group.Id)
         .ExecuteDeleteAsync();
         await _context.SaveChangesAsync();
@@ -260,7 +264,7 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
-        if (removeFromGroupDto.UserIds is null || removeFromGroupDto.UserIds.Count == 0)
+        if (removeFromGroupDto.UserIds.Count == 0)
         {
             return BadRequest("please provie the id of user to be removed");
         }
@@ -300,7 +304,7 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
-        if (addToGroup.UserIds == null || addToGroup.UserIds.Count == 0)
+        if (addToGroup.UserIds.Count == 0)
         {
             return BadRequest("UserIds list cannot be null or empty.");
         }
@@ -316,7 +320,7 @@ public class GroupController : Controller
         {
             return BadRequest("Group cant have more than 50 members.");
         }
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var usersToAdd = addToGroup.UserIds
@@ -356,6 +360,7 @@ public class GroupController : Controller
             return StatusCode(500, new { Message = "An error occurred while creating the group.", Error = ex.Message });
         }
     }
+    
     [HttpGet]
     [Route("settle/{id}")]
     public async Task<IActionResult> GetExpenseSettlement(string id)
