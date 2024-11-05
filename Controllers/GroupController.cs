@@ -1,6 +1,5 @@
+using System.Runtime.Intrinsics.Arm;
 using System.Security.Claims;
-using AutoMapper;
-using CloudinaryDotNet;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -8,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
+using Splitwise_Back.Models.Dto;
 using Splitwise_Back.Models.Dtos;
 
 namespace Splitwise_Back.Controllers;
@@ -36,10 +36,12 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
+
         if (groupDto.UserIds is null || groupDto.UserIds.Count < 2)
         {
-            return BadRequest("group must contain atleast 2 members");
+            return BadRequest("group must contain at least 2 members");
         }
+
         var creator = await _userManager.FindByIdAsync(groupDto.CreatedByUserId);
         if (creator == null)
         {
@@ -61,7 +63,8 @@ public class GroupController : Controller
             await _context.SaveChangesAsync();
             var groupMembers = new List<GroupMembers>
             {
-                new() {
+                new()
+                {
                     GroupId = newGroup.Id,
                     UserId = groupDto.CreatedByUserId,
                     IsAdmin = true,
@@ -76,6 +79,7 @@ public class GroupController : Controller
                 {
                     continue;
                 }
+
                 var user = await _userManager.FindByIdAsync(userId);
                 if (user is null)
                 {
@@ -92,6 +96,7 @@ public class GroupController : Controller
                     JoinDate = DateTime.Now
                 });
             }
+
             await _context.GroupMembers.AddRangeAsync(groupMembers);
             await _context.SaveChangesAsync();
 
@@ -117,9 +122,9 @@ public class GroupController : Controller
     public async Task<IActionResult> GetAll()
     {
         var allGroups = await _context.Groups
-        .Include(g => g.CreatedByUser)
-        .Include(g => g.GroupMembers)
-        .ToListAsync();
+            .Include(g => g.CreatedByUser)
+            .Include(g => g.GroupMembers)
+            .ToListAsync();
         if (allGroups.Count == 0)
         {
             return NotFound("No Group Exists");
@@ -147,14 +152,15 @@ public class GroupController : Controller
     public async Task<IActionResult> GetGroupByCreator(string id)
     {
         var groups = await _context.Groups.Where(g => g.CreatedByUserId == id)
-        .Include(g => g.GroupMembers)
-        .Include(g => g.CreatedByUser)
-        .AsNoTracking()
-        .ToArrayAsync();
+            .Include(g => g.GroupMembers)
+            .Include(g => g.CreatedByUser)
+            .AsNoTracking()
+            .ToArrayAsync();
         if (groups.Length < 1)
         {
             return NotFound("This user has no Group");
         }
+
         var readGroupDto = groups.Select(g => new ReadGroupDto
         {
             Id = g.Id,
@@ -179,18 +185,20 @@ public class GroupController : Controller
         var group = await _context.Groups.FindAsync(id);
         if (group is null)
         {
-            return BadRequest("Group with Given id doesnot exists");
+            return BadRequest("Group with Given id doesn't exists");
         }
+
         var userId = User.FindFirstValue("Id");
         if (userId is null)
         {
             return StatusCode(401, "Not authorized");
         }
+
         var groupAdminId = await _context.GroupMembers
-        .Where(g => g.GroupId == group.Id && g.IsAdmin == true)
-        .Select(user => user.UserId)
-        .AsNoTracking()
-        .FirstOrDefaultAsync();
+            .Where(g => g.GroupId == group.Id && g.IsAdmin == true)
+            .Select(user => user.UserId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
 
         if (groupAdminId is null)
         {
@@ -206,9 +214,9 @@ public class GroupController : Controller
         var listOfBalancesNotSettled = userBalances.Select(ub => ub.Balance != 0).ToList();
         if (listOfBalancesNotSettled.Count != 0) return BadRequest("Please settle the group before deleting it");
 
-       await _context.Groups
-        .Where(g => g.Id == group.Id)
-        .ExecuteDeleteAsync();
+        await _context.Groups
+            .Where(g => g.Id == group.Id)
+            .ExecuteDeleteAsync();
         await _context.SaveChangesAsync();
 
 
@@ -223,21 +231,24 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
+
         var userId = User.FindFirstValue("Id");
         if (userId is null)
         {
             return StatusCode(401, "Not authorized");
         }
+
         var group = await _context.Groups.FindAsync(id);
         if (group is null)
         {
-            return BadRequest("Group with Given id doesnot exists");
+            return BadRequest("Group with Given id doesn't exists");
         }
+
         var groupAdminId = await _context.GroupMembers
-        .Where(g => g.GroupId == group.Id && g.IsAdmin)
-        .Select(g => g.UserId)
-        .AsNoTracking()
-        .FirstOrDefaultAsync();
+            .Where(g => g.GroupId == group.Id && g.IsAdmin)
+            .Select(g => g.UserId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
 
         if (groupAdminId == null)
         {
@@ -249,6 +260,7 @@ public class GroupController : Controller
         {
             return StatusCode(401, "Only group Admin can delete the group");
         }
+
         group.Description = updateGroup.Description;
         group.GroupName = updateGroup.GroupName;
         _context.Groups.Update(group);
@@ -264,13 +276,15 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
+
         if (removeFromGroupDto.UserIds.Count == 0)
         {
-            return BadRequest("please provie the id of user to be removed");
+            return BadRequest("please provide the id of user to be removed");
         }
+
         var group = await _context.Groups
-        .Include(g => g.GroupMembers)
-        .FirstOrDefaultAsync(g => g.Id == id);
+            .Include(g => g.GroupMembers)
+            .FirstOrDefaultAsync(g => g.Id == id);
 
         if (group is null)
         {
@@ -278,22 +292,24 @@ public class GroupController : Controller
         }
 
         var membersToRemove = group
-        .GroupMembers
-        .Where(gm => removeFromGroupDto.UserIds.Contains(gm.UserId))
-        .ToList();
+            .GroupMembers
+            .Where(gm => removeFromGroupDto.UserIds.Contains(gm.UserId))
+            .ToList();
 
         if (membersToRemove.Count <= 0)
         {
             return BadRequest("No users provided exist in the group");
         }
+
         if ((group.GroupMembers.Count - membersToRemove.Count) < 2)
         {
-            return BadRequest("Removing mmembers will make a group of single user either delete or reduce the list of members");
+            return BadRequest(
+                "Removing members will make a group of single user either delete or reduce the list of members");
         }
 
         _context.GroupMembers.RemoveRange(membersToRemove);
         await _context.SaveChangesAsync();
-        return Ok("Members removed successfuly");
+        return Ok("Members removed successfully");
     }
 
     [HttpPatch]
@@ -304,22 +320,26 @@ public class GroupController : Controller
         {
             return BadRequest(ModelState);
         }
+
         if (addToGroup.UserIds.Count == 0)
         {
             return BadRequest("UserIds list cannot be null or empty.");
         }
+
         var group = await _context.Groups
-        .Include(g => g.GroupMembers)
-        .FirstOrDefaultAsync(g => g.Id == id);
+            .Include(g => g.GroupMembers)
+            .FirstOrDefaultAsync(g => g.Id == id);
 
         if (group is null)
         {
             return BadRequest("Group of give id not found");
         }
+
         if ((group.GroupMembers.Count + addToGroup.UserIds.Count) > 50)
         {
             return BadRequest("Group cant have more than 50 members.");
         }
+
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -332,8 +352,9 @@ public class GroupController : Controller
             {
                 if (user is null)
                 {
-                    throw new Exception("provile a list of valid user Ids");
+                    throw new Exception("provide a list of valid user Ids");
                 }
+
                 groupMembers.Add(new GroupMembers
                 {
                     GroupId = group.Id,
@@ -352,7 +373,8 @@ public class GroupController : Controller
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
-            return Ok("Member Added Sucessfully");
+
+            return Ok("Member Added Successfully");
         }
         catch (Exception ex)
         {
@@ -360,21 +382,19 @@ public class GroupController : Controller
             return StatusCode(500, new { Message = "An error occurred while creating the group.", Error = ex.Message });
         }
     }
-    
+
     [HttpGet]
-    [Route("settle/{id}")]
-    public async Task<IActionResult> GetExpenseSettlement(string id)
+    [Route("settle/greedy/{id}")]
+    public async Task<IActionResult> GetExpenseSettlementByGreedy(string id)
     {
         var expenseShares = await _context.ExpenseShares
-        .Where(es => es.Expense.GroupId == id)
-        .Include(es => es.Expense)
-        .ToListAsync();
+            .Where(es => es.Expense.GroupId == id)
+            .Include(es => es.Expense)
+            .ToListAsync();
 
         var userBalances = await _context.UserBalances
-        .Where(ub => ub.GroupId == id)
-        .Include(ub => ub.OwedToUser)
-        .Include(ub => ub.User)
-        .ToListAsync();
+            .Where(ub => ub.GroupId == id)
+            .ToListAsync();
 
         Dictionary<string, decimal> dbUserBalanceSheet = [];
         Dictionary<string, decimal> userBalanceSheet = [];
@@ -382,41 +402,97 @@ public class GroupController : Controller
         // who owes how much and who is owed how much using expense shares
         foreach (var expenseShare in expenseShares)
         {
-            if (!userBalanceSheet.ContainsKey(expenseShare.UserId))
+            if (!userBalanceSheet.ContainsKey(expenseShare.OwedByUserId))
             {
-                userBalanceSheet[expenseShare.UserId] = 0;
+                userBalanceSheet[expenseShare.OwedByUserId] = 0;
             }
-            if (!userBalanceSheet.ContainsKey(expenseShare.OwesUserId))
+
+            if (!userBalanceSheet.ContainsKey(expenseShare.OwesToUserId))
             {
-                userBalanceSheet[expenseShare.OwesUserId] = 0;
+                userBalanceSheet[expenseShare.OwesToUserId] = 0;
             }
-            userBalanceSheet[expenseShare.UserId] -= expenseShare.AmountOwed;
-            userBalanceSheet[expenseShare.OwesUserId] += expenseShare.AmountOwed;
+
+            userBalanceSheet[expenseShare.OwedByUserId] += expenseShare.AmountOwed;
+            userBalanceSheet[expenseShare.OwesToUserId] -= expenseShare.AmountOwed;
         }
 
         foreach (var userBalance in userBalances)
         {
-            if (!dbUserBalanceSheet.ContainsKey(userBalance.UserId))
+            if (!dbUserBalanceSheet.ContainsKey(userBalance.OwedByUserId))
             {
-                dbUserBalanceSheet[userBalance.UserId] = 0;
+                dbUserBalanceSheet[userBalance.OwedByUserId] = 0;
             }
-            if (!dbUserBalanceSheet.ContainsKey(userBalance.OwedToUserId))
+
+            if (!dbUserBalanceSheet.ContainsKey(userBalance.OwesToUserId))
             {
-                dbUserBalanceSheet[userBalance.OwedToUserId] = 0;
+                dbUserBalanceSheet[userBalance.OwesToUserId] = 0;
             }
-            dbUserBalanceSheet[userBalance.UserId] -= userBalance.Balance;
-            dbUserBalanceSheet[userBalance.OwedToUserId] += userBalance.Balance;
+
+            dbUserBalanceSheet[userBalance.OwedByUserId] += userBalance.Balance;
+            dbUserBalanceSheet[userBalance.OwesToUserId] -= userBalance.Balance;
         }
 
-        if (userBalanceSheet.Count != dbUserBalanceSheet.Count) return StatusCode(500, "The error occurred because the data is not accurate ");
+        if (userBalanceSheet.Count != dbUserBalanceSheet.Count)
+            return StatusCode(500, "The error occurred because the data is not accurate ");
         foreach (var dbKey in dbUserBalanceSheet)
         {
-            if (!userBalanceSheet.TryGetValue(dbKey.Key, out var value)) return StatusCode(500, "The error occurred because the data is not accurate ");
+            if (!userBalanceSheet.TryGetValue(dbKey.Key, out var value))
+                return StatusCode(500, "The error occurred because the data is not accurate ");
             Console.WriteLine($"{dbKey.Key}: {dbKey.Value}, {value}");
             if (dbKey.Value != value) return StatusCode(500, "The error occurred because the data is not accurate ");
         }
 
+        var transactions = new List<Transaction>();
+        var payers = dbUserBalanceSheet.Where(b => b.Value < 0).Select(b => new { Id = b.Key, Amount = -b.Value })
+            .ToList();
+        var receivers = dbUserBalanceSheet.Where(b => b.Value > 0).Select(b => new { Id = b.Key, Amount = b.Value })
+            .ToList();
+        int i = 0, j = 0;
 
-        return Ok("All Good");
+        // Settle debts with a two-pointer approach and log transactions
+        while (i < payers.Count && j < receivers.Count)
+        {
+            var settlementAmount = Math.Min(payers[i].Amount, receivers[j].Amount);
+
+            // Record the transaction
+            transactions.Add(new Transaction
+            {
+                PayerId = payers[i].Id,
+                ReceiverId = receivers[j].Id,
+                Amount = settlementAmount
+            });
+
+            // Adjust balances after transaction
+            payers[i] = new { Id = payers[i].Id, Amount = payers[i].Amount - settlementAmount };
+            receivers[j] = new { Id = receivers[j].Id, Amount = receivers[j].Amount - settlementAmount };
+
+            // Move pointers if a debt is settled
+            if (payers[i].Amount == 0) i++;
+            if (receivers[j].Amount == 0) j++;
+        }
+
+        List<TransactionResults> transactionResultsList = [];
+        foreach (var transaction in transactions)
+        {
+            var payer = await _userManager.FindByIdAsync(transaction.PayerId);
+            var reviver = await _userManager.FindByIdAsync(transaction.ReceiverId);
+            if(reviver == null || payer == null) return BadRequest();
+            transactionResultsList.Add(new TransactionResults()
+            {
+                Payer = new AbstractReadUserDto()
+                {
+                    Id = payer.Id,
+                    UserName = payer.UserName
+                },                
+                Reciver = new AbstractReadUserDto()
+                {
+                    Id = reviver.Id,
+                    UserName = reviver.UserName
+                },
+                Amount = transaction.Amount
+            });
+        }
+
+        return Ok(transactionResultsList);
     }
 }

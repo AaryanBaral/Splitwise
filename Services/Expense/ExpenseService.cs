@@ -209,8 +209,8 @@ public class ExpenseService : IExpenseService
         var allUserBalances = new List<ReadUserBalanceDto>();
         foreach (var ub in userBalances)
         {
-            var user = await _userManager.FindByIdAsync(ub.UserId);
-            var owedTo = await _userManager.FindByIdAsync(ub.OwedToUserId);
+            var user = await _userManager.FindByIdAsync(ub.OwedByUserId);
+            var owedTo = await _userManager.FindByIdAsync(ub.OwesToUserId);
 
             if (user == null || owedTo == null || user.UserName == null || owedTo.UserName == null)
                 return new ExpenseResults<ReadTestExpenseDto>()
@@ -233,8 +233,8 @@ public class ExpenseService : IExpenseService
         var expenseShares = new List<ReadExpenseShareDto>();
         foreach (var es in expense.ExpenseShares)
         {
-            var user = await _userManager.FindByIdAsync(es.UserId);
-            var owesUser = await _userManager.FindByIdAsync(es.OwesUserId);
+            var user = await _userManager.FindByIdAsync(es.OwedByUserId);
+            var owesUser = await _userManager.FindByIdAsync(es.OwesToUserId);
 
             if (user == null || owesUser == null)
                 return new ExpenseResults<ReadTestExpenseDto>()
@@ -398,18 +398,18 @@ public class ExpenseService : IExpenseService
                     {
                         Expense = newExpense,
                         ExpenseId = newExpense.Id,
-                        UserId = member.UserId,
-                        User = memberUser,
-                        OwesUser = payerUser,
-                        OwesUserId = payer.UserId,
+                        OwedByUserId = member.UserId,
+                        OwedByUser = memberUser,
+                        OwesToUser = payerUser,
+                        OwesToUserId = payer.UserId,
                         AmountOwed = amountOwedFromPayer,
                         ShareType = EqualShareType
                     });
 
                     //finding a user balance if exists
                     var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
-                        b => b.UserId == member.UserId &&
-                             b.OwedToUserId == payer.UserId &&
+                        b => b.OwedByUserId == member.UserId &&
+                             b.OwesToUserId == payer.UserId &&
                              b.GroupId == group.Id
                     );
 
@@ -420,11 +420,11 @@ public class ExpenseService : IExpenseService
                         {
                             GroupId = group.Id,
                             Group = group,
-                            UserId = member.UserId,
-                            OwedToUserId = payer.UserId,
+                            OwedByUserId = member.UserId,
+                            OwesToUserId = payer.UserId,
                             Balance = amountOwedFromPayer,
-                            User = memberUser,
-                            OwedToUser = payerUser
+                            OwedByUser = memberUser,
+                            OwesToUser = payerUser
                         };
                         await _context.UserBalances.AddAsync(newUserBalance);
                     }
@@ -496,8 +496,8 @@ public class ExpenseService : IExpenseService
                 };
                 var userBalance = await _context.UserBalances
                     .FirstOrDefaultAsync(
-                        b => b.UserId == member.UserId &&
-                             b.OwedToUserId == payer.Id &&
+                        b => b.OwedByUserId == member.UserId &&
+                             b.OwesToUserId == payer.Id &&
                              b.GroupId == createExpenseDto.GroupId);
 
                 //check if the User Balance exists or not
@@ -507,11 +507,11 @@ public class ExpenseService : IExpenseService
                     {
                         GroupId = group.Id,
                         Group = group,
-                        UserId = member.UserId,
-                        OwedToUserId = payer.Id,
+                        OwedByUserId = member.UserId,
+                        OwesToUserId = payer.Id,
                         Balance = sharedAmount,
-                        User = user,
-                        OwedToUser = payer
+                        OwedByUser = user,
+                        OwesToUser = payer
                     };
                     _context.UserBalances.Add(newBalanceEntry);
                     await _context.SaveChangesAsync();
@@ -527,10 +527,10 @@ public class ExpenseService : IExpenseService
                 {
                     Expense = newExpense,
                     ExpenseId = newExpense.Id,
-                    UserId = member.UserId,
-                    User = user,
-                    OwesUser = user,
-                    OwesUserId = payer.Id,
+                    OwedByUserId = member.UserId,
+                    OwedByUser = user,
+                    OwesToUser = user,
+                    OwesToUserId = payer.Id,
                     AmountOwed = sharedAmount,
                     ShareType = EqualShareType
                 });
@@ -603,8 +603,8 @@ public class ExpenseService : IExpenseService
                     StatusCode = 400
                 };
                 var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub =>
-                    ub.UserId == member.UserId &&
-                    ub.OwedToUserId == payer.Id &&
+                    ub.OwedByUserId == member.UserId &&
+                    ub.OwesToUserId == payer.Id &&
                     ub.GroupId == createExpenseDto.GroupId);
 
                 //check if the User Balance exists or not
@@ -614,11 +614,11 @@ public class ExpenseService : IExpenseService
                     {
                         GroupId = group.Id,
                         Group = group,
-                        UserId = member.UserId,
-                        OwedToUserId = payer.Id,
+                        OwedByUserId = member.UserId,
+                        OwesToUserId = payer.Id,
                         Balance = member.Share,
-                        User = user,
-                        OwedToUser = payer
+                        OwedByUser = user,
+                        OwesToUser = payer
                     };
                     _context.UserBalances.Add(newBalanceEntry);
                     await _context.SaveChangesAsync();
@@ -634,10 +634,10 @@ public class ExpenseService : IExpenseService
                 {
                     Expense = newExpense,
                     ExpenseId = newExpense.Id,
-                    OwesUser = payer,
-                    OwesUserId = payer.Id,
-                    User = user,
-                    UserId = user.Id,
+                    OwesToUser = payer,
+                    OwesToUserId = payer.Id,
+                    OwedByUser = user,
+                    OwedByUserId = user.Id,
                     AmountOwed = member.Share,
                     ShareType = UnequalShareType
                 });
@@ -741,18 +741,18 @@ public class ExpenseService : IExpenseService
                     {
                         Expense = newExpense,
                         ExpenseId = newExpense.Id,
-                        UserId = member.UserId,
-                        User = memberUser,
-                        OwesUser = payerUser,
-                        OwesUserId = payer.UserId,
+                        OwedByUserId = member.UserId,
+                        OwedByUser = memberUser,
+                        OwesToUser = payerUser,
+                        OwesToUserId = payer.UserId,
                         AmountOwed = amountOwedFromPayer,
                         ShareType = UnequalShareType
                     });
 
                     //finding a user balance if exists
                     var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
-                        b => b.UserId == member.UserId &&
-                             b.OwedToUserId == payer.UserId &&
+                        b => b.OwedByUserId == member.UserId &&
+                             b.OwesToUserId == payer.UserId &&
                              b.GroupId == group.Id
                     );
 
@@ -763,11 +763,11 @@ public class ExpenseService : IExpenseService
                         {
                             GroupId = group.Id,
                             Group = group,
-                            UserId = member.UserId,
-                            OwedToUserId = payer.UserId,
+                            OwedByUserId = member.UserId,
+                            OwesToUserId = payer.UserId,
                             Balance = amountOwedFromPayer,
-                            User = memberUser,
-                            OwedToUser = payerUser
+                            OwedByUser = memberUser,
+                            OwesToUser = payerUser
                         };
                         await _context.UserBalances.AddAsync(newUserBalance);
                     }
@@ -852,8 +852,8 @@ public class ExpenseService : IExpenseService
                     StatusCode = 400
                 };
                 var amountOfPercentage = member.Share * total / (decimal)100;
-                var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub => ub.UserId == member.UserId &&
-                    ub.OwedToUserId == payer.Id &&
+                var userBalance = await _context.UserBalances.FirstOrDefaultAsync(ub => ub.OwedByUserId == member.UserId &&
+                    ub.OwesToUserId == payer.Id &&
                     ub.GroupId == group.Id
                 );
                 if (userBalance is null)
@@ -862,10 +862,10 @@ public class ExpenseService : IExpenseService
                     {
                         GroupId = group.Id,
                         Group = group,
-                        OwedToUser = payer,
-                        OwedToUserId = payer.Id,
-                        UserId = member.UserId,
-                        User = user,
+                        OwesToUser = payer,
+                        OwesToUserId = payer.Id,
+                        OwedByUserId = member.UserId,
+                        OwedByUser = user,
                         Balance = amountOfPercentage
                     };
                     _context.UserBalances.Add(newUserBalance);
@@ -880,10 +880,10 @@ public class ExpenseService : IExpenseService
                     Expense = newExpense,
                     ExpenseId = newExpense.Id,
                     ShareType = PercentageShareType,
-                    UserId = member.UserId,
-                    User = user,
-                    OwesUser = payer,
-                    OwesUserId = payer.Id,
+                    OwedByUserId = member.UserId,
+                    OwedByUser = user,
+                    OwesToUser = payer,
+                    OwesToUserId = payer.Id,
                     AmountOwed = amountOfPercentage
                 });
             }
@@ -982,18 +982,18 @@ public class ExpenseService : IExpenseService
                     {
                         Expense = newExpense,
                         ExpenseId = newExpense.Id,
-                        UserId = member.UserId,
-                        User = user,
-                        OwesUser = payerUser,
-                        OwesUserId = payer.UserId,
+                        OwedByUserId = member.UserId,
+                        OwedByUser = user,
+                        OwesToUser = payerUser,
+                        OwesToUserId = payer.UserId,
                         AmountOwed = amountOwedFromPayer,
                         ShareType = PercentageShareType
                     });
 
                     //finding a user balance if exists
                     var userBalance = await _context.UserBalances.FirstOrDefaultAsync(
-                        b => b.UserId == member.UserId &&
-                             b.OwedToUserId == payer.UserId &&
+                        b => b.OwedByUserId == member.UserId &&
+                             b.OwesToUserId == payer.UserId &&
                              b.GroupId == group.Id
                     );
 
@@ -1004,11 +1004,11 @@ public class ExpenseService : IExpenseService
                         {
                             GroupId = group.Id,
                             Group = group,
-                            UserId = member.UserId,
-                            OwedToUserId = payer.UserId,
+                            OwedByUserId = member.UserId,
+                            OwesToUserId = payer.UserId,
                             Balance = amountOwedFromPayer,
-                            User = user,
-                            OwedToUser = payerUser
+                            OwedByUser = user,
+                            OwesToUser = payerUser
                         };
                         await _context.UserBalances.AddAsync(newUserBalance);
                     }

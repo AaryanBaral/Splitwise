@@ -9,7 +9,7 @@ public class Settlement
     public required int PayerId { get; set; } // User who paid the settlement
 
 
-    public required int PayeeId { get; set; } // User who received the settlement
+    public required int ReciverId { get; set; } // User who received the settlement
     
     public required decimal Amount { get; set; } // Amount settled
 

@@ -61,11 +61,11 @@ namespace Splitwise_Back.Data
 
             // ExpenseShare Table Composite Key
             builder.Entity<ExpenseShares>()
-                .HasKey(es => new { es.ExpenseId, es.UserId, es.OwesUserId });
+                .HasKey(es => new { es.ExpenseId, es.OwedByUserId, es.OwesToUserId });
 
             // UserBalance Table Composite Key
             builder.Entity<UserBalances>()
-                .HasKey(ub => new { ub.UserId, ub.OwedToUserId, ub.GroupId })
+                .HasKey(ub => new { ub.OwedByUserId, ub.OwesToUserId, ub.GroupId })
                 .IsClustered(false);
 
 
@@ -82,7 +82,7 @@ namespace Splitwise_Back.Data
 
             //Relation for expense share
             builder.Entity<ExpenseShares>()
-                .Property(es => es.UserId)
+                .Property(es => es.OwedByUserId)
                 .HasMaxLength(450);
 
             builder.Entity<ExpenseShares>()
@@ -91,15 +91,15 @@ namespace Splitwise_Back.Data
                 .HasForeignKey(es => es.ExpenseId);
 
             builder.Entity<ExpenseShares>()
-                .HasOne(es => es.User)
+                .HasOne(es => es.OwedByUser)
                 .WithMany()
-                .HasForeignKey(es => es.UserId)
+                .HasForeignKey(es => es.OwedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ExpenseShares>()
-                .HasOne(es => es.OwesUser)
+                .HasOne(es => es.OwesToUser)
                 .WithMany()
-                .HasForeignKey(es => es.OwesUserId)
+                .HasForeignKey(es => es.OwesToUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ExpenseShares>()
@@ -110,15 +110,15 @@ namespace Splitwise_Back.Data
 
             // Relationships for UserBalance
             builder.Entity<UserBalances>()
-                .HasOne(ub => ub.User)
+                .HasOne(ub => ub.OwedByUser)
                 .WithMany()
-                .HasForeignKey(ub => ub.UserId)
+                .HasForeignKey(ub => ub.OwedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserBalances>()
-                .HasOne(ub => ub.OwedToUser)
+                .HasOne(ub => ub.OwesToUser)
                 .WithMany()
-                .HasForeignKey(ub => ub.OwedToUserId)
+                .HasForeignKey(ub => ub.OwesToUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserBalances>()
