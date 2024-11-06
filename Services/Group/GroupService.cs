@@ -3,6 +3,7 @@ using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
+using Splitwise_Back.Services.User;
 
 namespace Splitwise_Back.Services.Group;
 
@@ -12,20 +13,23 @@ public class GroupService:IGroupService
 
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
+    private readonly IUserService _userService;
     private readonly UserManager<CustomUsers> _userManager;
     public GroupService(ILogger<ExpenseController> logger, AppDbContext context,
-        UserManager<CustomUsers> userManager)
+        UserManager<CustomUsers> userManager, IUserService userService)
     {
         _logger = logger;
         _context = context;
         _userManager = userManager;
+        _userService = userService;
+        
     }
-    public async Task<GroupResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto)
+    public async Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto)
     {
 
         if (createGroupDto.UserIds is null || createGroupDto.UserIds.Count < 2)
         {
-            return new GroupResults<string>()
+            return new ResponseResults<string>()
             {
                 Success = false,
                 StatusCode = 400,
@@ -36,7 +40,7 @@ public class GroupService:IGroupService
         var creator = await _userManager.FindByIdAsync(createGroupDto.CreatedByUserId);
         if (creator == null)
         {
-            return new GroupResults<string>()
+            return new ResponseResults<string>()
             {
                 Success = false,
                 StatusCode = 400,
@@ -97,7 +101,7 @@ public class GroupService:IGroupService
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
-            return new GroupResults<string>()
+            return new ResponseResults<string>()
             {
                 Success = true,
                 StatusCode = 200,
@@ -109,7 +113,7 @@ public class GroupService:IGroupService
             // Rollback the transaction in case of any error
             await transaction.RollbackAsync();
             _logger.LogError(ex, "An error occurred while adding members to the group: {Message}", ex.Message);
-            return new GroupResults<string>()
+            return new ResponseResults<string>()
             {
                 Success = false,
                 StatusCode = 400,

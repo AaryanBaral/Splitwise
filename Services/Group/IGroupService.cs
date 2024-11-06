@@ -5,6 +5,6 @@ namespace Splitwise_Back.Services.Group;
 
 public interface IGroupService
 {
-    Task<GroupResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto);
+    Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto);
     
 }

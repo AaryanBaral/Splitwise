@@ -16,7 +16,7 @@ namespace Splitwise_Back.Services.ExternalServices
     public interface ITokenService
     {
         Task<AuthResults> GenerateJwtToken(IdentityUser user);
-        Task<AuthResults> ValidateAndGenerateToken(TokenRequestDto tokenRequest);
+        // Task<AuthResults> ValidateAndGenerateToken(TokenRequestDto tokenRequest);
     }
     public class JwtTokenService(
         IOptions<JwtConfig> config,
@@ -42,7 +42,7 @@ namespace Splitwise_Back.Services.ExternalServices
                     this is used to add key value pair of data that should be encrypetd 
                     and addded to the jwt token
                 */
-                var _claims = new ClaimsIdentity([
+                var claims = new ClaimsIdentity([
                     new Claim("Id",user.Id),
                 new Claim(JwtRegisteredClaimNames.Sub,user.Email ?? throw new ArgumentNullException(nameof(user),"User's Email cannot be null")),
                 new Claim(JwtRegisteredClaimNames.Email,user.Email),
@@ -56,7 +56,7 @@ namespace Splitwise_Back.Services.ExternalServices
                 */
                 var tokenDescriptor = new SecurityTokenDescriptor()
                 {
-                    Subject = _claims,
+                    Subject = claims,
                     Expires = DateTime.UtcNow.Add(_config.ExpiryTimeFrame),
                     SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
 

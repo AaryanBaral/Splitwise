@@ -26,6 +26,7 @@ nupkg/
 *.userosscache
 *.sln.docstates
 
+worksTodo.txt
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

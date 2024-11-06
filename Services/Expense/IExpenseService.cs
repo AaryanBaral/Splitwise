@@ -5,7 +5,7 @@ namespace Splitwise_Back.Services.Expense;
 
 public interface IExpenseService
 {
-    Task<ExpenseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto);
-    Task<ExpenseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId);
-    Task<ExpenseResults<List<ReadAllExpenseDto>>> GetAllExpenses(string groupId);
+    Task<ResponseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto);
+    Task<ResponseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId);
+    Task<ResponseResults<List<ReadAllExpenseDto>>> GetAllExpenses(string groupId);
 }

@@ -25,7 +25,7 @@ public class ExpenseService : IExpenseService
         _userManager = userManager;
     }
 
-    public async Task<ExpenseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto)
+    public async Task<ResponseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto)
     {
         //calculating and validating the provided data
         var total = createExpenseDto.Amount;
@@ -36,7 +36,7 @@ public class ExpenseService : IExpenseService
             .FirstOrDefaultAsync(g => g.Id == createExpenseDto.GroupId);
         if (group is null)
         {
-            return new ExpenseResults<string>()
+            return new ResponseResults<string>()
             {
                 Errors = "Group does not exist",
                 Success = false,
@@ -51,7 +51,7 @@ public class ExpenseService : IExpenseService
             .ToList();
         if (invalidUsers.Count != 0)
         {
-            return new ExpenseResults<string>()
+            return new ResponseResults<string>()
             {
                 Errors = "Members provided does not exist in group",
                 Success = false,
@@ -82,19 +82,21 @@ public class ExpenseService : IExpenseService
                 {
                     await EqualAndSinglePayer(createExpenseDto, group, newExpense);
                     await transaction.CommitAsync();
-                    return new ExpenseResults<string>()
+                    return new ResponseResults<string>()
                     {
                         Success = true,
                         Data = newExpense.Id,
+                        StatusCode = 200
                     };
                 }
 
                 await EqualAndMultiPayer(createExpenseDto, group, newExpense);
                 await transaction.CommitAsync();
-                return new ExpenseResults<string>()
+                return new ResponseResults<string>()
                 {
                     Success = true,
                     Data = newExpense.Id,
+                    StatusCode = 200
                 };
             }
 
@@ -104,19 +106,21 @@ public class ExpenseService : IExpenseService
                 {
                     await UnequalAndSinglePayer(createExpenseDto, group, newExpense);
                     await transaction.CommitAsync();
-                    return new ExpenseResults<string>()
+                    return new ResponseResults<string>()
                     {
                         Success = true,
                         Data = newExpense.Id,
+                        StatusCode = 200
                     };
                 }
 
                 await UnequalAndMultiPayer(createExpenseDto, group, newExpense);
                 await transaction.CommitAsync();
-                return new ExpenseResults<string>()
+                return new ResponseResults<string>()
                 {
                     Success = true,
                     Data = newExpense.Id,
+                    StatusCode = 200
                 };
             }
 
@@ -126,23 +130,25 @@ public class ExpenseService : IExpenseService
                 {
                     await PercentageAndSinglePayer(createExpenseDto, group, newExpense);
                     await transaction.CommitAsync();
-                    return new ExpenseResults<string>()
+                    return new ResponseResults<string>()
                     {
                         Success = true,
                         Data = newExpense.Id,
+                        StatusCode = 200
                     };
                 }
 
                 await PercentageAndMultiPayer(createExpenseDto, group, newExpense);
                 await transaction.CommitAsync();
-                return new ExpenseResults<string>()
+                return new ResponseResults<string>()
                 {
                     Success = true,
                     Data = newExpense.Id,
+                    StatusCode = 200
                 };
             }
 
-            return new ExpenseResults<string>()
+            return new ResponseResults<string>()
             {
                 Success = false,
                 Errors = "Share type is not valid",
@@ -152,7 +158,7 @@ public class ExpenseService : IExpenseService
         catch (CustomException ex)
         {
             await transaction.RollbackAsync();
-            return new ExpenseResults<string>()
+            return new ResponseResults<string>()
             {
                 Errors = ex.Errors,
                 StatusCode = ex.StatusCode,
@@ -161,7 +167,7 @@ public class ExpenseService : IExpenseService
         }
     }
 
-    public async Task<ExpenseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId)
+    public async Task<ResponseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId)
     {
         // Fetch the expense and related data in a single query with no tracking
         var expense = await _context.Expenses
@@ -173,7 +179,7 @@ public class ExpenseService : IExpenseService
 
         if (expense == null)
         {
-            return new ExpenseResults<ReadTestExpenseDto>()
+            return new ResponseResults<ReadTestExpenseDto>()
             {
                 Success = false,
                 Errors = "Expense does not exist",
@@ -193,7 +199,7 @@ public class ExpenseService : IExpenseService
         {
             var user = await _userManager.FindByIdAsync(payer.PayerId);
             if (user == null)
-                return new ExpenseResults<ReadTestExpenseDto>()
+                return new ResponseResults<ReadTestExpenseDto>()
                 {
                     Success = false,
                     Errors = "members in the expense does not exist",
@@ -213,7 +219,7 @@ public class ExpenseService : IExpenseService
             var owedTo = await _userManager.FindByIdAsync(ub.OwesToUserId);
 
             if (user == null || owedTo == null || user.UserName == null || owedTo.UserName == null)
-                return new ExpenseResults<ReadTestExpenseDto>()
+                return new ResponseResults<ReadTestExpenseDto>()
                 {
                     Success = false,
                     Errors = "User in the expense does not exist",
@@ -237,7 +243,7 @@ public class ExpenseService : IExpenseService
             var owesUser = await _userManager.FindByIdAsync(es.OwesToUserId);
 
             if (user == null || owesUser == null)
-                return new ExpenseResults<ReadTestExpenseDto>()
+                return new ResponseResults<ReadTestExpenseDto>()
                 {
                     Success = false,
                     Errors = "Expense does not exist",
@@ -273,7 +279,7 @@ public class ExpenseService : IExpenseService
             Date = expense.Date,
             Description = expense.Description
         };
-        return new ExpenseResults<ReadTestExpenseDto>()
+        return new ResponseResults<ReadTestExpenseDto>()
         {
             Success = true,
             Data = readExpenseDto,
@@ -281,12 +287,12 @@ public class ExpenseService : IExpenseService
         };
     }
 
-    public async Task<ExpenseResults<List<ReadAllExpenseDto>>> GetAllExpenses(string groupId)
+    public async Task<ResponseResults<List<ReadAllExpenseDto>>> GetAllExpenses(string groupId)
     {
         var group = await _context.Groups.FindAsync(groupId);
         if (group is null)
         {
-            return new ExpenseResults<List<ReadAllExpenseDto>>()
+            return new ResponseResults<List<ReadAllExpenseDto>>()
             {
                 Errors = "Group does not exist",
                 StatusCode = 400,
@@ -297,7 +303,7 @@ public class ExpenseService : IExpenseService
         var allExpenses = await _context.Expenses.Where(e => e.GroupId == groupId).ToListAsync();
         if (allExpenses.Count == 0)
         {
-            return new ExpenseResults<List<ReadAllExpenseDto>>()
+            return new ResponseResults<List<ReadAllExpenseDto>>()
             {
                 Errors = "No Expenses Found",
                 StatusCode = 400,
@@ -314,7 +320,7 @@ public class ExpenseService : IExpenseService
             Description = e.Description
         }).ToList();
 
-        return new ExpenseResults<List<ReadAllExpenseDto>>()
+        return new ResponseResults<List<ReadAllExpenseDto>>()
         {
             Success = true,
             Data = readAllExpense,

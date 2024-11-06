@@ -27,10 +27,10 @@ namespace Splitwise_Back.Services.ExternalServices
             }
         }
 
-        public async Task<bool> DeleteImageByPublicIc(string PublicId){
+        public async Task<bool> DeleteImageByPublicIc(string publicId){
             try{
-            await _cloudinary.DestroyAsync(new DeletionParams(PublicId));
-            return true;
+                await _cloudinary.DestroyAsync(new DeletionParams(publicId));
+                return true;
             }catch(Exception ex){
                 throw new Exception($"Server Error {ex.Message}");
             }

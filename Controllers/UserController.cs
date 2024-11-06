@@ -3,7 +3,6 @@ using Splitwise_Back.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.ExternalServices;
@@ -21,15 +20,13 @@ namespace Splitwise_Back.Controllers
         private readonly ITokenService _tokenService;
 
         private readonly UserManager<CustomUsers> _userManager;
-        private readonly AppDbContext _context;
 
-        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<CustomUsers> userManager, ITokenService tokenService, AppDbContext context)
+        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<CustomUsers> userManager, ITokenService tokenService)
         {
             _logger = logger;
             _cloudinary = cloudinary;
             _userManager = userManager;
             _tokenService = tokenService;
-            _context = context;
         }
 
         [HttpPost]

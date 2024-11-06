@@ -1,6 +1,6 @@
 namespace Splitwise_Back.Models;
 
-public class GroupResults<T>
+public class ResponseResults<T>
 {
     public T? Data { get; set; }
     public string? Errors { get; set; }
@@ -8,3 +8,4 @@ public class GroupResults<T>
     public required bool Success { get; set; }
     
 }
+
