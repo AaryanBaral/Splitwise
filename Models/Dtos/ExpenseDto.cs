@@ -49,9 +49,13 @@ namespace Splitwise_Back.Models.Dtos
     }
     public class UpdateExpenseDto
     {
-        public required string Description { get; set; }
-        public required string PayerId { get; set; }
+        public required string GroupId { get; set; }
+        public string? PayerId { get; set; } //change this to optional
+        public List<ExpensePayer>? Payers { get; set; }
         public required decimal Amount { get; set; }
+        public required string Description { get; set; }
+        public required string ShareType { get; set; }
+        public required List<ExpenseSharedMembers> ExpenseSharedMembers { get; set; } 
     }
 
     public class ExpenseSharedMembers

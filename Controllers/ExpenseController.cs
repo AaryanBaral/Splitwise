@@ -1,12 +1,7 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
-using Splitwise_Back.Data;
-using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.Expense;
 
@@ -17,17 +12,10 @@ namespace Splitwise_Back.Controllers;
 [Route("api/[controller]")]
 public class ExpenseController : ControllerBase
 {
-    private readonly ILogger<ExpenseController> _logger;
-    private readonly AppDbContext _context;
-    private readonly UserManager<CustomUsers> _userManager;
     private readonly IExpenseService  _expenseService;
 
-    public ExpenseController(ILogger<ExpenseController> logger, AppDbContext context,
-        UserManager<CustomUsers> userManager, IExpenseService expenseService)
+    public ExpenseController(IExpenseService expenseService)
     {
-        _logger = logger;
-        _context = context;
-        _userManager = userManager;
         _expenseService = expenseService;
     }
 
@@ -62,5 +50,13 @@ public class ExpenseController : ControllerBase
         return StatusCode(expenseResult.StatusCode,
             new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
         
+    }
+
+    [HttpPut]
+    [Route("update/{id}")]
+    public async Task<IActionResult> UpdateExpense(string id, [FromBody] UpdateExpenseDto updateExpenseDto)
+    {
+        await _expenseService.UpdateExpense(id, updateExpenseDto);
+        return Ok("Check Console");
     }
 }
