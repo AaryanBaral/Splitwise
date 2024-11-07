@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Splitwise_Back.Controllers;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
+using Splitwise_Back.Models.DTOs;
 using Splitwise_Back.Services.ExternalServices;
 
 namespace Splitwise_Back.Services.User;
@@ -88,30 +89,23 @@ public class UserService : IUserService
         }
     }
     
-
-    public async Task<CustomUsers?> GetSingleUserAsync(string userId)
+    public async Task<CustomUsers> DoesUserExistsEmailAsync(string email)
     {
-        return await _userManager.FindByIdAsync(userId);
+        return await _userManager.FindByEmailAsync(email) ?? throw new CustomException()
+        {
+            StatusCode = 400,
+            Errors = "Email address is invalid"
+        };
     }
 
-    public async Task<ResponseResults<ReadUserDto>> GetUserByIdAsync(string userId)
+    public async Task<ResponseResults<ReadUserDto>> GetSingleUserAsync(string email)
     {
-        var user = await GetSingleUserAsync(userId);
-        if (user == null)
-        {
-            return new ResponseResults<ReadUserDto>()
-            {
-                Success = false,
-                Errors = "User does not exist",
-                StatusCode = 404,
-            };
-        }
+        var user = await DoesUserExistsEmailAsync(email);
 
         if (user.UserName == null || user.Email == null)
         {
-            return new ResponseResults<ReadUserDto>()
+            throw new CustomException()
             {
-                Success = false,
                 StatusCode = 400,
                 Errors = "User is not valid"
             };
@@ -135,17 +129,7 @@ public class UserService : IUserService
     {
         try
         {
-            var user = await GetSingleUserAsync(userId);
-            if (user is null)
-            {
-                return new ResponseResults<string>()
-                {
-                    Success = false,
-                    StatusCode = 400,
-                    Errors = "User does not exist"
-                };
-            }
-
+            var user = await DoesUserExistsEmailAsync(userId);
             user.Email = updateUserDto.Email;
             user.UserName = updateUserDto.Name;
             if (image is null)
@@ -187,6 +171,130 @@ public class UserService : IUserService
         {
             _logger.LogError(ex.Message);
             return new ResponseResults<string>()
+            {
+                StatusCode = 500,
+                Errors = ex.Message,
+                Success = false,
+            };
+        }
+    }
+
+
+    public async Task<ResponseResults<AuthResults>> LoginUser(UserLoginDto userLogin)
+    {
+        try
+        {
+            var user = await DoesUserExistsEmailAsync(userLogin.Email);
+            var isCorrect = await _userManager.CheckPasswordAsync(user, userLogin.Password);
+            if (!isCorrect)
+            {
+                return new ResponseResults<AuthResults>()
+                {
+                    Data = new AuthResults()
+                    {
+                        Result = false,
+                        Errors = ["Invalid username or password."]
+                    },
+                    StatusCode = 400,
+                    Success = false,
+                };
+            }
+            var result = await _tokenService.GenerateJwtToken(user);
+            result.Id = user.Id;
+            return new ResponseResults<AuthResults>()
+            {
+                Success = true,
+                Data = result,
+                StatusCode = 200,
+            };
+            
+        }
+        catch (CustomException ex)
+        {
+            return new ResponseResults<AuthResults>()
+            {
+                Success = false,
+                StatusCode = 404,
+                Errors = "User does not exist"
+            };
+        }
+    }
+
+    public async Task<CustomUsers> GetUserIdOrThrowAsync(string userId)
+    {
+        return await _userManager.FindByIdAsync(userId) ?? throw new CustomException()
+        {
+            StatusCode = 404,
+            Errors = "User does not exist"
+        };
+    }
+
+    public async Task<ResponseResults<string>> DeleteUser(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return new ResponseResults<string>()
+            {
+                Data = "Email Not Registered",
+                StatusCode = 404,
+                Success = false,
+            };
+        }
+        var isDeleted = await _userManager.DeleteAsync(user);
+        if (!isDeleted.Succeeded)
+        {
+            return new ResponseResults<string>()
+            {
+                Data = "Server Error.",
+                StatusCode = 500,
+                Success = false,
+            };
+        }
+
+        return new ResponseResults<string>()
+        {
+            Data = "User Deleted Successfully.",
+            StatusCode = 200,
+            Success = true,
+        };
+    }
+
+    public ResponseResults<List<ReadUserDto>> GetAllUsers()
+    {
+        try
+        {
+            var allUsers =  _userManager.Users.ToList();
+            var readUserDto = allUsers.Select(e =>
+            {
+
+                if (e.Email is null || e.UserName is null)
+                {
+                    throw new CustomException()
+                    {
+                        StatusCode = 400,
+                        Errors = "Email address is invalid"
+                    };
+                }
+
+                return new ReadUserDto()
+                {
+                    Id = e.Id,
+                    Email = e.Email,
+                    UserName = e.UserName,
+                };
+            }).ToList();
+            return new ResponseResults<List<ReadUserDto>>()
+            {
+                StatusCode = 200,
+                Data = readUserDto,
+                Success = true,
+            };
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex.Message, ex.Errors);
+            return new ResponseResults<List<ReadUserDto>>()
             {
                 StatusCode = 500,
                 Errors = ex.Message,

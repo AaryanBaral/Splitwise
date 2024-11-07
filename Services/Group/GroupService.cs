@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
@@ -121,4 +122,46 @@ public class GroupService:IGroupService
             };
         }
     }
+
+    public async Task<Groups> ValidateGroup(string groupId)
+    {
+        return await _context.Groups.FindAsync(groupId) ?? throw new CustomException()
+        {
+            StatusCode = 400,
+            Errors = "Group not found"
+        };
+    }
+    
+    public async Task<Groups> ValidateGroupAndMembers(CreateExpenseDto createExpenseDto)
+    {
+        // Validate Group
+        var group = await _context.Groups
+            .Include(g => g.GroupMembers)
+            .FirstOrDefaultAsync(g => g.Id == createExpenseDto.GroupId);
+        if (group is null)
+        {
+            throw new CustomException()
+            {
+                Errors = "Group does not exist",
+                StatusCode = 400
+            };
+        }
+
+
+        // Validate Share Participants
+        var userIdsInGroup = group.GroupMembers.Select(gm => gm.UserId).ToHashSet();
+        var invalidUsers = createExpenseDto.ExpenseSharedMembers.Where(es => !userIdsInGroup.Contains(es.UserId))
+            .ToList();
+        if (invalidUsers.Count != 0)
+        {
+            throw new CustomException()
+            {
+                Errors = "Members provided does not exist in group",
+                StatusCode = 400
+            };
+        }
+
+        return group;
+    }
+    
 }

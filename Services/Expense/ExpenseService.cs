@@ -4,6 +4,7 @@ using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
+using Splitwise_Back.Services.Group;
 
 namespace Splitwise_Back.Services.Expense;
 
@@ -11,6 +12,7 @@ public class ExpenseService : IExpenseService
 {
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
+    private readonly IGroupService _groupService;
     private readonly UserManager<CustomUsers> _userManager;
     private const string EqualShareType = "EQUAL";
     private const string UnequalShareType = "UNEQUAL";
@@ -19,11 +21,12 @@ public class ExpenseService : IExpenseService
 
 
     public ExpenseService(ILogger<ExpenseController> logger, AppDbContext context,
-        UserManager<CustomUsers> userManager)
+        UserManager<CustomUsers> userManager, IGroupService groupService)
     {
         _logger = logger;
         _context = context;
         _userManager = userManager;
+        _groupService = groupService;
     }
 
     public async Task<ResponseResults<string>> UpdateExpense(string expenseId, UpdateExpenseDto updateExpenseDto)
@@ -232,6 +235,7 @@ public class ExpenseService : IExpenseService
 
     public async Task<ResponseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto)
     {
+       await using  var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             if (!ValidShareTypes.Contains(createExpenseDto.ShareType, StringComparer.InvariantCultureIgnoreCase))
@@ -245,7 +249,7 @@ public class ExpenseService : IExpenseService
             }
 
             // Validate Group
-            var group = await ValidateGroupAndMembers(createExpenseDto);
+            var group = await _groupService.ValidateGroupAndMembers(createExpenseDto);
 
             var newExpense = new Expenses()
             {
@@ -258,7 +262,8 @@ public class ExpenseService : IExpenseService
             _context.Expenses.Add(newExpense);
             await _context.SaveChangesAsync();
             await CreateExpenseShares(createExpenseDto, group, newExpense);
-
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return new ResponseResults<string>()
             {
                 Success = true,
@@ -268,6 +273,8 @@ public class ExpenseService : IExpenseService
         }
         catch (CustomException ex)
         {
+            await transaction.RollbackAsync();
+            
             _logger.LogError(ex, ex.Message);
             return new ResponseResults<string>()
             {
@@ -435,36 +442,5 @@ public class ExpenseService : IExpenseService
             member.Share = member.Share * total / 100;
         }
     }
-
-    private async Task<Groups> ValidateGroupAndMembers(CreateExpenseDto createExpenseDto)
-    {
-        // Validate Group
-        var group = await _context.Groups
-            .Include(g => g.GroupMembers)
-            .FirstOrDefaultAsync(g => g.Id == createExpenseDto.GroupId);
-        if (group is null)
-        {
-            throw new CustomException()
-            {
-                Errors = "Group does not exist",
-                StatusCode = 400
-            };
-        }
-
-
-        // Validate Share Participants
-        var userIdsInGroup = group.GroupMembers.Select(gm => gm.UserId).ToHashSet();
-        var invalidUsers = createExpenseDto.ExpenseSharedMembers.Where(es => !userIdsInGroup.Contains(es.UserId))
-            .ToList();
-        if (invalidUsers.Count != 0)
-        {
-            throw new CustomException()
-            {
-                Errors = "Members provided does not exist in group",
-                StatusCode = 400
-            };
-        }
-
-        return group;
-    }
+    
 }

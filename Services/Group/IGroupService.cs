@@ -6,5 +6,7 @@ namespace Splitwise_Back.Services.Group;
 public interface IGroupService
 {
     Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto);
-    
+    Task<Groups> ValidateGroup(string groupId);
+    Task<Groups> ValidateGroupAndMembers(CreateExpenseDto createExpenseDto);
+
 }

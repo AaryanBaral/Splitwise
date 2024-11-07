@@ -3,9 +3,11 @@ using Splitwise_Back.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.ExternalServices;
+using Splitwise_Back.Services.User;
 
 
 namespace Splitwise_Back.Controllers
@@ -15,18 +17,12 @@ namespace Splitwise_Back.Controllers
     [Route("api/[controller]")]
     public class UserController : Controller
     {
-        private readonly ILogger<UserController> _logger;
-        private readonly CloudinaryService _cloudinary;
-        private readonly ITokenService _tokenService;
+        private readonly IUserService _userService;
+        
 
-        private readonly UserManager<CustomUsers> _userManager;
-
-        public UserController(ILogger<UserController> logger, CloudinaryService cloudinary, UserManager<CustomUsers> userManager, ITokenService tokenService)
+        public UserController(   IUserService userService)
         {
-            _logger = logger;
-            _cloudinary = cloudinary;
-            _userManager = userManager;
-            _tokenService = tokenService;
+            _userService = userService;
         }
 
         [HttpPost]
@@ -41,38 +37,13 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid Payload"]
                 });
             }
-            var user = new CustomUsers()
+            var results = await _userService.CreateUserAsync(newUser, image);
+            return StatusCode(results.StatusCode, new
             {
-                UserName = newUser.Name,
-                Email = newUser.Email,
-            };
-            try
-            {
-                var downloadUrl = await _cloudinary.UploadImage(image);
-                user.ImageUrl = downloadUrl;
-                var isUserCreated = await _userManager.CreateAsync(user, newUser.Password);
-                if (!isUserCreated.Succeeded)
-                {
-                    return BadRequest(new AuthResults()
-                    {
-                        Result = false,
-                        Errors = IdentityErrorHandler.GetErrors(isUserCreated)
-                    });
-                }
-                var token = await _tokenService.GenerateJwtToken(user);
-                token.Id = user.Id;
-
-                if (!token.Result)
-                {
-                    return StatusCode(500, token);
-                }
-                token.DownloadUrl = downloadUrl;
-                return Ok(token);
-            }
-            catch (System.Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+                Success = results.Success,
+                Data = results.Data,
+                Errors = results.Errors,
+            });
         }
 
         [HttpPost]
@@ -87,96 +58,61 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid payload"]
                 });
             }
-            var existingUser = await _userManager.FindByEmailAsync(userLogin.Email);
-            if (existingUser is null)
+            var results = await _userService.LoginUser(userLogin);
+            return StatusCode(results.StatusCode, new
             {
-                return BadRequest(new AuthResults()
-                {
-                    Result = false,
-                    Errors = ["Email Not Registered"]
-                });
-            }
-            var isCorrect = await _userManager.CheckPasswordAsync(existingUser, userLogin.Password);
-            if (!isCorrect)
-            {
-                return BadRequest(new AuthResults()
-                {
-                    Result = false,
-                    Errors = ["Invalid Passwored"]
-                });
-            }
-            var result = await _tokenService.GenerateJwtToken(existingUser);
-            result.Id = existingUser.Id;
-            return Ok(result);
+                Success = results.Success,
+                Data = results.Data,
+                Errors = results.Errors,
+            });
+            
         }
 
         [HttpDelete]
         [Route("delete/{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
-            var user = await _userManager.FindByIdAsync(id.ToString());
-            if (user is null)
+            var results = await _userService.DeleteUser(id);
+            return StatusCode(results.StatusCode, new
             {
-                return BadRequest(new AuthResults()
-                {
-                    Result = false,
-                    Errors = ["Email Not Registered"]
-                });
-            }
-            var isDeleted = await _userManager.DeleteAsync(user);
-            if (!isDeleted.Succeeded)
-            {
-                return StatusCode(500, new AuthResults()
-                {
-                    Result = false,
-                    Errors = ["Server Error"]
-                });
-            }
-            return Ok("User Deleted sucessfully");
+                Success = results.Success,
+                Data = results.Data,
+                Errors = results.Errors,
+            });
         }
 
         // Api testing Remaining for update
         [HttpPut]
         [Route("update/{id}")]
-        public async Task<IActionResult> UpdateUser(string id, [FromForm] UserRegistrationDto updateUser,[FromForm(Name = "Image")] IFormFile? Image = null)
+        public async Task<IActionResult> UpdateUser(string id, [FromForm] UpdateUserDto updateUser,[FromForm(Name = "Image")] IFormFile? Image = null)
         {
-            var user = await _userManager.FindByIdAsync(id.ToString());
-            if (user is null)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(new AuthResults()
                 {
                     Result = false,
-                    Errors = ["Email Not Registered"]
+                    Errors = ["Invalid payload"]
                 });
             }
-            user.Email = updateUser.Email;
-            user.UserName = updateUser.Name;
-            if (Image is not null)
+            var results = await _userService.UpdateUser(id, updateUser, Image);
+            return StatusCode(results.StatusCode, new
             {
-                user.ImageUrl = await _cloudinary.UploadImage(Image);
-            }
-            var isUpdated = await _userManager.UpdateAsync(user);
-            if (!isUpdated.Succeeded)
-            {
-                foreach (var error in isUpdated.Errors)
-                {
-                    // Log or display the error descriptions
-                    Console.WriteLine($"Error: {error.Code} - {error.Description}");
-                }
-                return StatusCode(500, new AuthResults()
-                {
-                    Result = false,
-                    Errors = [$"{isUpdated.Errors}"]
-                });
-            }
-
-            return Ok("User Updated Sucessfully.");
+                Success = results.Success,
+                Data = results.Data,
+                Errors = results.Errors,
+            });
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
-            return Ok(await _userManager.Users.ToListAsync());
+            var results = _userService.GetAllUsers();
+            return StatusCode(results.StatusCode, new
+            {
+                Success = results.Success,
+                Data = results.Data,
+                Errors = results.Errors,
+            });
         }
         
         
@@ -184,7 +120,13 @@ namespace Splitwise_Back.Controllers
         [Route("{id}")]
         public async Task<IActionResult> GetUserById(string id)
         {
-            return Ok(await _userManager.FindByIdAsync(id));
+            var results = await _userService.GetSingleUserAsync(id);
+            return StatusCode(results.StatusCode, new
+            {
+                Success = results.Success,
+                Data = results.Data,
+                Errors = results.Errors,
+            });
         }
     }
 }

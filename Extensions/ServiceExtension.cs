@@ -8,6 +8,8 @@ using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Services.Expense;
 using Splitwise_Back.Services.ExternalServices;
+using Splitwise_Back.Services.Group;
+using Splitwise_Back.Services.User;
 
 namespace Splitwise_Back.Extensions
 {
@@ -35,6 +37,8 @@ namespace Splitwise_Back.Extensions
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // services.AddSingleton<EmailService>();
             services.AddScoped<IExpenseService,ExpenseService>();
+            services.AddScoped<IGroupService,GroupService>();
+            services.AddScoped<IUserService,UserService>();
         }
 
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
