@@ -104,7 +104,7 @@ namespace Splitwise_Back.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllUsers()
+        public IActionResult GetAllUsers()
         {
             var results = _userService.GetAllUsers();
             return StatusCode(results.StatusCode, new

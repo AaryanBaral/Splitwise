@@ -215,7 +215,7 @@ public class UserService : IUserService
             {
                 Success = false,
                 StatusCode = 404,
-                Errors = "User does not exist"
+                Errors = ex.Message
             };
         }
     }
