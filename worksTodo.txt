@@ -1,4 +1,3 @@
 update expense
-Delete expense
 delete group
 delete user

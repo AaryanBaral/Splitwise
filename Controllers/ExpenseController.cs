@@ -7,7 +7,7 @@ using Splitwise_Back.Services.Expense;
 
 namespace Splitwise_Back.Controllers;
 
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+// [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 [ApiController]
 [Route("api/[controller]")]
 public class ExpenseController : ControllerBase
@@ -58,5 +58,13 @@ public class ExpenseController : ControllerBase
     {
         await _expenseService.UpdateExpense(id, updateExpenseDto);
         return Ok("Check Console");
+    }
+
+    [HttpDelete]
+    [Route("delete/{id}")]
+    public async Task<IActionResult> DeleteExpense(string id)
+    {
+        var result = await _expenseService.DeleteExpense(id);
+        return StatusCode(result.StatusCode, new { Data = result.Data, Success = result.Success, Errors = result.Errors });
     }
 }

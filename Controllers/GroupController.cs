@@ -12,7 +12,7 @@ using Splitwise_Back.Models.Dtos;
 
 namespace Splitwise_Back.Controllers;
 
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+// [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 [ApiController]
 [Route("api/[controller]")]
 public class GroupController : Controller

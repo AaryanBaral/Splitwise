@@ -283,7 +283,7 @@ public class ExpenseService : IExpenseService
         }
     }
 
-    public async Task CreateExpenseShares(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
+    private async Task CreateExpenseShares(CreateExpenseDto createExpenseDto, Groups group, Expenses newExpense)
     {
         try
         {
@@ -425,11 +425,65 @@ public class ExpenseService : IExpenseService
         }
     }
 
+    private async Task UpdateUserBalanceOnExpenseDeletion(string owedByUserId, string owesToUserId, string groupId,
+        decimal amountOwed)
+    {
+        var userBalance = await _context.UserBalances
+            .FirstOrDefaultAsync(b => b.OwedByUserId == owedByUserId &&
+                                      b.OwesToUserId == owesToUserId &&
+                                      b.GroupId == groupId);
+        if (userBalance is not null)
+        {
+            userBalance.Balance -= amountOwed;
+        }
+    }
+
     private static void ConvertPercentShareToAmount(List<ExpenseSharedMembers> expenseSharedMembers, decimal total)
     {
         foreach (var member in expenseSharedMembers)
         {
             member.Share = member.Share * total / 100;
+        }
+    }
+
+    public async Task<ResponseResults<string>> DeleteExpense(string expenseId)
+    {
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var expense = await _context.Expenses
+                .Include(e=>e.ExpenseShares)
+                .Where(ex=>ex.Id == expenseId)
+                .FirstOrDefaultAsync()??
+                throw new CustomException { Errors = "Expense not found", StatusCode = 404 };
+
+
+            foreach (var expenseShare in expense.ExpenseShares)
+            {
+                await UpdateUserBalanceOnExpenseDeletion(expenseShare.OwedByUserId, expenseShare.OwesToUserId,
+                    expense.GroupId, expenseShare.AmountOwed);
+            }
+            await _context.ExpenseShares.Where(exp => exp.ExpenseId == expenseId).ExecuteDeleteAsync();
+            await _context.ExpensePayers.Where(ep => ep.ExpenseId == expenseId).ExecuteDeleteAsync();
+            await _context.Expenses.Where(exp => exp.Id == expenseId).ExecuteDeleteAsync();
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return new ResponseResults<string>()
+            {
+                Data = "Expense deleted successfully",
+                Success = true,
+                StatusCode = 200
+            };
+        }
+        catch (CustomException ex)
+        {
+            await transaction.RollbackAsync();
+            return new ResponseResults<string>()
+            {
+                Success = false,
+                StatusCode = ex.StatusCode,
+                Errors = ex.Errors
+            };
         }
     }
 }
