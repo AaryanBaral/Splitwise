@@ -8,5 +8,6 @@ public interface IGroupService
     Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto);
     Task<Groups> ValidateGroup(string groupId);
     Task<Groups> ValidateGroupAndMembers(CreateExpenseDto createExpenseDto);
+    Task<Groups> ValidateGroupAndMembers(UpdateExpenseDto createExpenseDto);
 
 }

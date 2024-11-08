@@ -14,5 +14,6 @@ public interface IUserService
     Task<ResponseResults<string>> UpdateUser(string userId, UpdateUserDto updateUserDto, IFormFile? image);
     Task<ResponseResults<string>> DeleteUser(string userId);
     ResponseResults<List<ReadUserDto>> GetAllUsers();
+    Task<CustomUsers?> GetUserIdOrReturnNull(string userId);
 
 }

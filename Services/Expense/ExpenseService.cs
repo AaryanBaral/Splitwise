@@ -32,36 +32,55 @@ public class ExpenseService : IExpenseService
 
     public async Task<ResponseResults<string>> UpdateExpense(string expenseId, UpdateExpenseDto updateExpenseDto)
     {
-        var expense = await _context.Expenses
-            .Include(e => e.ExpenseShares)
-            .Include(e => e.Payers)
-            .FirstOrDefaultAsync(x => x.Id == expenseId);
-        if (expense is null)
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            if (!_validShareTypes.Contains(updateExpenseDto.ShareType, StringComparer.InvariantCultureIgnoreCase))
+            {
+                return new ResponseResults<string>()
+                {
+                    Success = false,
+                    StatusCode = 400,
+                    Errors = "Please Enter a valid share type"
+                };
+            }
+
+            var group = await _groupService.ValidateGroupAndMembers(updateExpenseDto);
+
+            var expense = await _context.Expenses
+                .Include(e => e.ExpenseShares)
+                .Include(e => e.Payers)
+                .FirstOrDefaultAsync(x => x.Id == expenseId);
+            if (expense is null)
+                return new ResponseResults<string>()
+                {
+                    Success = false,
+                    StatusCode = 400,
+                    Errors = "Expense not found."
+                };
+            expense.Description = updateExpenseDto.Description;
+            await _context.SaveChangesAsync();
+            await UpdateExpenseShare(updateExpenseDto, expense, group);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return new ResponseResults<string>()
             {
-                Success = false,
-                StatusCode = 400,
-                Errors = "Expense not found."
+                Success = true,
+                StatusCode = 200
             };
-        if (expense.Description != updateExpenseDto.Description)
-        {
-            expense.Description = updateExpenseDto.Description;
         }
-
-        expense.Amount = updateExpenseDto.Amount;
-        var expenseSharedMembers = expense.ExpenseShares.Select(es => es.OwedByUserId).Distinct().ToList();
-        var payers = expense.Payers.Select(e => e.PayerId).ToList();
-
-        foreach (var member in expenseSharedMembers)
+        catch (CustomException ex)
         {
-            Console.WriteLine(member);
+            await transaction.RollbackAsync();
+
+            _logger.LogError(ex, ex.Message);
+            return new ResponseResults<string>()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = ex.StatusCode,
+                Success = false
+            };
         }
-
-        return new ResponseResults<string>()
-        {
-            Success = true,
-            StatusCode = 200
-        };
     }
 
 
@@ -71,6 +90,7 @@ public class ExpenseService : IExpenseService
     /// </summary>
     public async Task<ResponseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             // Fetch the expense and related data in a single query with no tracking
@@ -344,6 +364,20 @@ public class ExpenseService : IExpenseService
                 { Errors = "The percentage distribution doesn't sum up to 100", StatusCode = 400 };
     }
 
+    private static void ValidateExpenseData(UpdateExpenseDto updateExpenseDto)
+    {
+        if (!updateExpenseDto.Payers.Any())
+            throw new CustomException { Errors = "You must provide at least one payer", StatusCode = 400 };
+
+        if (updateExpenseDto.Payers.Sum(p => p.Share) != updateExpenseDto.Amount)
+            throw new CustomException
+                { Errors = "Total amount paid by payers does not match the expense amount", StatusCode = 400 };
+
+        if (updateExpenseDto.ExpenseSharedMembers.Sum(e => e.Share) != 100)
+            throw new CustomException
+                { Errors = "The percentage distribution doesn't sum up to 100", StatusCode = 400 };
+    }
+
     private static ExpensePayers CreateExpensePayerAsync(Expenses newExpense, CustomUsers payerUser, decimal amountPaid)
     {
         return new ExpensePayers
@@ -356,6 +390,122 @@ public class ExpenseService : IExpenseService
         };
     }
 
+    private async Task UpdateExpenseShare(UpdateExpenseDto updateExpenseDto, Expenses existingExpense, Groups group)
+    {
+        try
+        {
+            ValidateExpenseData(updateExpenseDto);
+            existingExpense.Amount = updateExpenseDto.Amount;
+            await _context.SaveChangesAsync();
+            var total = updateExpenseDto.Payers.Sum(p => p.Share);
+            List<ExpenseShares> expenseSharesList = [];
+            List<ExpensePayers> expensePayersList = [];
+
+            // deducts the amount of every expense shares
+            foreach (var member in existingExpense.ExpenseShares)
+            {
+                await UpdateUserBalanceOnExpenseDeletionOrModification(member.OwedByUserId, member.OwesToUserId,
+                    existingExpense.GroupId, member.AmountOwed);
+            }
+
+            var newExpensePayersId = updateExpenseDto.Payers.Select(p => p.UserId);
+            var dbExpensePayersId = await _context.ExpensePayers.Where(ep => ep.ExpenseId == existingExpense.Id)
+                .Select(ep => ep.PayerId).ToListAsync();
+            var payersToBeDeleted = dbExpensePayersId.Except(newExpensePayersId).ToList();
+
+            // remove the expense Payer
+            if (payersToBeDeleted.Count > 0)
+            {
+                foreach (var payer in payersToBeDeleted)
+                {
+                    await _context.ExpensePayers.Where(ep => ep.PayerId == payer).ExecuteDeleteAsync();
+                }
+            }
+
+            foreach (var payer in updateExpenseDto.Payers)
+            {
+                var userPayer = await _userService.GetUserIdOrThrowAsync(payer.UserId);
+                var existingPayerOfExpense =
+                    await _context.ExpensePayers.Where(p => p.PayerId == payer.UserId).FirstOrDefaultAsync();
+                if (existingPayerOfExpense is null)
+                {
+                    var newPayer = CreateExpensePayerAsync(existingExpense, userPayer, payer.Share);
+                    expensePayersList.Add(newPayer);
+                }
+
+                await UpdateExpenseSharesForPayer(updateExpenseDto, payer, total, expenseSharesList, userPayer,
+                    existingExpense, group);
+            }
+
+            await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
+            await _context.ExpensePayers.AddRangeAsync(expensePayersList);
+            await _context.SaveChangesAsync();
+        }
+        catch (CustomException ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Errors}",
+                StatusCode = 500
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw new CustomException()
+            {
+                Errors = $"An error occured while processing your request, {ex.Message}",
+                StatusCode = 500
+            };
+        }
+    }
+
+
+    private async Task UpdateExpenseSharesForPayer(UpdateExpenseDto updateExpenseDto,
+        ExpensePayer expensePayer,
+        decimal total,
+        List<ExpenseShares> expenseSharesList,
+        CustomUsers payerUser,
+        Expenses newExpense,
+        Groups group)
+    {
+        var payerShare = expensePayer.Share;
+        var proportionOfDebtCovered = payerShare / total;
+        foreach (var member in updateExpenseDto.ExpenseSharedMembers)
+        {
+            if (expensePayer.UserId == member.UserId)
+                continue;
+            var memberUser = await _userService.GetUserIdOrThrowAsync(member.UserId);
+            var amountOwed = proportionOfDebtCovered * member.Share;
+            var existingExpenseShare = await _context.ExpenseShares
+                .Where(es =>
+                    es.OwesToUserId == expensePayer.UserId && es.OwedByUserId == payerUser.Id &&
+                    es.ExpenseId == newExpense.Id)
+                .FirstOrDefaultAsync();
+            if (existingExpenseShare is null)
+            {
+                var expenseShare = new ExpenseShares
+                {
+                    Expense = newExpense,
+                    ExpenseId = newExpense.Id,
+                    OwedByUserId = member.UserId,
+                    OwedByUser = memberUser,
+                    OwesToUser = payerUser,
+                    OwesToUserId = expensePayer.UserId,
+                    AmountOwed = amountOwed,
+                    ShareType = updateExpenseDto.ShareType.ToUpper()
+                };
+                expenseSharesList.Add(expenseShare);
+            }
+            else
+            {
+                existingExpenseShare.AmountOwed = amountOwed;
+            }
+
+            await UpdateUserBalanceAsync(memberUser, payerUser, group, amountOwed);
+        }
+    }
 
     // Adds ExpenseShares for each shared member related to a specific payer
     private async Task AddExpenseSharesForPayer(
@@ -425,7 +575,8 @@ public class ExpenseService : IExpenseService
         }
     }
 
-    private async Task UpdateUserBalanceOnExpenseDeletion(string owedByUserId, string owesToUserId, string groupId,
+    private async Task UpdateUserBalanceOnExpenseDeletionOrModification(string owedByUserId, string owesToUserId,
+        string groupId,
         decimal amountOwed)
     {
         var userBalance = await _context.UserBalances
@@ -452,17 +603,19 @@ public class ExpenseService : IExpenseService
         try
         {
             var expense = await _context.Expenses
-                .Include(e=>e.ExpenseShares)
-                .Where(ex=>ex.Id == expenseId)
-                .FirstOrDefaultAsync()??
-                throw new CustomException { Errors = "Expense not found", StatusCode = 404 };
+                              .Include(e => e.ExpenseShares)
+                              .Where(ex => ex.Id == expenseId)
+                              .FirstOrDefaultAsync() ??
+                          throw new CustomException { Errors = "Expense not found", StatusCode = 404 };
 
 
             foreach (var expenseShare in expense.ExpenseShares)
             {
-                await UpdateUserBalanceOnExpenseDeletion(expenseShare.OwedByUserId, expenseShare.OwesToUserId,
+                await UpdateUserBalanceOnExpenseDeletionOrModification(expenseShare.OwedByUserId,
+                    expenseShare.OwesToUserId,
                     expense.GroupId, expenseShare.AmountOwed);
             }
+
             await _context.ExpenseShares.Where(exp => exp.ExpenseId == expenseId).ExecuteDeleteAsync();
             await _context.ExpensePayers.Where(ep => ep.ExpenseId == expenseId).ExecuteDeleteAsync();
             await _context.Expenses.Where(exp => exp.Id == expenseId).ExecuteDeleteAsync();

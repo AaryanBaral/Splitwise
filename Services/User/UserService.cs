@@ -228,6 +228,10 @@ public class UserService : IUserService
             Errors = "User does not exist"
         };
     }
+    public async Task<CustomUsers?> GetUserIdOrReturnNull(string userId)
+    {
+        return await _userManager.FindByIdAsync(userId);
+    }
 
     public async Task<ResponseResults<string>> DeleteUser(string userId)
     {
