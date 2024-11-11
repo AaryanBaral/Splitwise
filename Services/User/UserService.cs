@@ -6,6 +6,7 @@ using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Models.DTOs;
 using Splitwise_Back.Services.ExternalServices;
+using Splitwise_Back.Services.Group;
 using Splitwise_Back.Services.UserBalance;
 
 namespace Splitwise_Back.Services.User;
@@ -18,12 +19,14 @@ public class UserService : IUserService
     private readonly ITokenService _tokenService;
     private readonly UserManager<CustomUsers> _userManager;
     private readonly IUserBalanceService _userBalanceService;
+    private readonly IGroupService _groupService;
 
     public UserService(ILogger<UserController> logger, CloudinaryService cloudinary,
         UserManager<CustomUsers> userManager, 
         ITokenService tokenService, 
         IUserBalanceService userBalanceService,
-        AppDbContext context)
+        AppDbContext context,
+        IGroupService groupService)
     {
         _logger = logger;
         _cloudinary = cloudinary;
@@ -31,6 +34,7 @@ public class UserService : IUserService
         _tokenService = tokenService;
         _userBalanceService = userBalanceService;
         _context = context;
+        _groupService = groupService;
     }
 
     public async Task<ResponseResults<AuthResults>> CreateUserAsync(UserRegistrationDto newUser, IFormFile image)
@@ -271,9 +275,17 @@ public class UserService : IUserService
             }
             
             // check and delete every group created by this user and return success or false
+            var groups = await _groupService.GetGroupByCreator(userId);
+            if (groups.Data is not null)
+            {
+                foreach (var group in groups.Data)
+                {
+                    await _groupService.DeleteGroup(group.Id, userId);
+                }
+            }
             
+            // remove the user from every group
             
-            // remove the use from every group
             if(user.ImageUrl != null)
                 await _cloudinary.DeleteImageByPublicIc(user.ImageUrl);
             

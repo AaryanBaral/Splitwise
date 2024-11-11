@@ -11,4 +11,5 @@ public interface IExpenseService
     Task<ResponseResults<string>> UpdateExpense(string expenseId, UpdateExpenseDto updateExpenseDto);
     Task<ResponseResults<string>> CreateExpenseAsync(CreateExpenseDto createExpenseDto);
     Task<ResponseResults<string>> DeleteExpense(string expenseId);
+    Task DeleteAllExpenses(string groupId);
 }

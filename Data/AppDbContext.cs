@@ -13,6 +13,7 @@ namespace Splitwise_Back.Data
         public DbSet<ExpenseShares> ExpenseShares { get; set; }
         public DbSet<UserBalances> UserBalances { get; set; }
         public DbSet<ExpensePayers> ExpensePayers { get; set; }
+        public DbSet<Settlement> Settlements { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -23,10 +24,7 @@ namespace Splitwise_Back.Data
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<CustomUsers>(entity =>
-            {
-                entity.Property(u => u.ImageUrl).HasMaxLength(256);
-            });
+            builder.Entity<CustomUsers>(entity => { entity.Property(u => u.ImageUrl).HasMaxLength(256); });
             // Group configuration
             builder.Entity<Groups>()
                 .HasKey(g => g.Id);
@@ -37,8 +35,33 @@ namespace Splitwise_Back.Data
                 .Property(g => g.Id)
                 .ValueGeneratedOnAdd();
             builder.Entity<ExpensePayers>()
-            .Property(ep => ep.AmountPaid)
-            .HasPrecision(28, 10);
+                .Property(ep => ep.AmountPaid)
+                .HasPrecision(28, 10);
+
+            builder.Entity<Settlement>()
+                .HasKey(s => s.SettlementId);
+
+            builder.Entity<Settlement>()
+                .HasOne(s => s.Group)
+                .WithMany()
+                .HasForeignKey(s => s.GroupId);
+
+            builder.Entity<Settlement>()
+                .HasOne(s => s.Payer)
+                .WithMany()
+                .HasForeignKey(s => s.PayerId)
+                .OnDelete(DeleteBehavior.Cascade);;
+
+            builder.Entity<Settlement>()
+                .HasOne(s => s.Receiver)
+                .WithMany()
+                .HasForeignKey(s => s.ReceiverId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Settlement>()
+                .Property(s => s.Amount)
+                .HasPrecision(28, 10);
+
 
             builder.Entity<Groups>()
                 .HasMany(g => g.GroupMembers)
@@ -48,10 +71,10 @@ namespace Splitwise_Back.Data
 
 
             builder.Entity<Groups>()
-            .HasOne(g => g.CreatedByUser)
-            .WithMany(u => u.CreatedGroups)
-            .HasForeignKey(gm => gm.CreatedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
+                .HasOne(g => g.CreatedByUser)
+                .WithMany(u => u.CreatedGroups)
+                .HasForeignKey(gm => gm.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Groups>()
                 .HasMany(g => g.Expenses)
@@ -112,7 +135,6 @@ namespace Splitwise_Back.Data
                 .HasPrecision(28, 10);
 
 
-
             // Relationships for UserBalance
             builder.Entity<UserBalances>()
                 .HasOne(ub => ub.OwedByUser)
@@ -127,15 +149,15 @@ namespace Splitwise_Back.Data
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserBalances>()
-            .HasOne(ub => ub.Group)
-            .WithMany(g => g.UserBalances)
-            .HasForeignKey(ub => ub.GroupId)
-            .OnDelete(DeleteBehavior.NoAction);
+                .HasOne(ub => ub.Group)
+                .WithMany(g => g.UserBalances)
+                .HasForeignKey(ub => ub.GroupId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserBalances>()
                 .Property(ub => ub.Balance)
                 .HasPrecision(28, 10);
-            
+
             //For Expense
             builder.Entity<Expenses>()
                 .HasOne(e => e.Group)
@@ -158,18 +180,16 @@ namespace Splitwise_Back.Data
 
 
             builder.Entity<Expenses>()
-            .HasMany(e => e.ExpenseShares) //one expense can have many ExpenseShare
-            .WithOne(es => es.Expense) // ExpenseShare is only associated with one Expense
-            .HasForeignKey(e => e.ExpenseId) //Expense share has a foreign key expenseId
-            .OnDelete(DeleteBehavior.Cascade);
+                .HasMany(e => e.ExpenseShares) //one expense can have many ExpenseShare
+                .WithOne(es => es.Expense) // ExpenseShare is only associated with one Expense
+                .HasForeignKey(e => e.ExpenseId) //Expense share has a foreign key expenseId
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<ExpensePayers>()
-            .HasOne(ep => ep.Expense)
-            .WithMany(e => e.Payers)
-            .HasForeignKey(p => p.ExpenseId)
-            .OnDelete(DeleteBehavior.NoAction);
-
+                .HasOne(ep => ep.Expense)
+                .WithMany(e => e.Payers)
+                .HasForeignKey(p => p.ExpenseId)
+                .OnDelete(DeleteBehavior.NoAction);
         }
-
     }
 }

@@ -208,6 +208,7 @@ public class ExpenseService : IExpenseService
         }
     }
 
+    
     /// <summary>
     ///  For Getting All Expenses, Parameters => string groupId
     /// </summary>
@@ -676,5 +677,27 @@ public class ExpenseService : IExpenseService
                 Errors = ex.Errors
             };
         }
+    }
+
+
+    public async Task DeleteAllExpenses(string groupId)
+    {
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var expenseIds = await _context.Expenses.Where(e => e.GroupId == groupId).Select(e => e.Id).ToListAsync();
+            foreach (var expenseId in expenseIds)
+            {
+                await DeleteExpense(expenseId);
+            }
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw new Exception(ex.Message);
+            
+        }
+        
     }
 }

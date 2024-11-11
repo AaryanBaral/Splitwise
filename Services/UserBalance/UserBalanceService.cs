@@ -27,13 +27,28 @@ public class UserBalanceService:IUserBalanceService
                 .ToListAsync();
             return userBalances.Count != 0;
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, ex.Message);
             throw new CustomException()
             {
-                Errors = e.Message,
+                Errors = ex.Message,
                 StatusCode = 500,
             };
+        }
+    }
+
+
+    public async Task DeleteUserBalanceByGroup(string groupId)
+    {
+        try
+        {
+            await _context.UserBalances.Where(ub => ub.GroupId == groupId).ExecuteDeleteAsync();
+        }
+        catch(Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+           throw new Exception(ex.Message, ex);
         }
     }
 }

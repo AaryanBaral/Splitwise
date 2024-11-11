@@ -12,6 +12,6 @@ public class Transaction
 public class TransactionResults
 {
     public required AbstractReadUserDto Payer { get; set; }
-    public required AbstractReadUserDto Reciver { get; set; }
+    public required AbstractReadUserDto Receiver { get; set; }
     public decimal Amount { get; set; }
 }
