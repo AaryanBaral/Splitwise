@@ -14,16 +14,13 @@ public class GroupService:IGroupService
 
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
-    private readonly IUserService _userService;
     private readonly UserManager<CustomUsers> _userManager;
     public GroupService(ILogger<ExpenseController> logger, AppDbContext context,
-        UserManager<CustomUsers> userManager, IUserService userService)
+        UserManager<CustomUsers> userManager)
     {
         _logger = logger;
         _context = context;
         _userManager = userManager;
-        _userService = userService;
-        
     }
     public async Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto)
     {

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
@@ -45,6 +44,7 @@ public class ExpenseService : IExpenseService
                 };
             }
 
+
             var group = await _groupService.ValidateGroupAndMembers(updateExpenseDto);
 
             var expense = await _context.Expenses
@@ -65,6 +65,7 @@ public class ExpenseService : IExpenseService
             await transaction.CommitAsync();
             return new ResponseResults<string>()
             {
+                Data = "Data Updated Successfully",
                 Success = true,
                 StatusCode = 200
             };
@@ -118,15 +119,16 @@ public class ExpenseService : IExpenseService
                 .ToListAsync();
 
             // Prepare data transformations in sequential loops to avoid concurrency issues
-            var expensePayers = new List<AbstractReadUserDto>();
+            var expensePayers = new List<ReadExpensePayerDto>();
             foreach (var payer in expense.Payers)
             {
                 var user = await _userService.GetUserIdOrThrowAsync(payer.PayerId);
 
-                expensePayers.Add(new AbstractReadUserDto
+                expensePayers.Add(new ReadExpensePayerDto
                 {
                     Id = payer.Id,
-                    UserName = user.UserName
+                    UserName = user.UserName,
+                    AmountPaid = payer.AmountPaid
                 });
             }
 
@@ -398,6 +400,11 @@ public class ExpenseService : IExpenseService
             existingExpense.Amount = updateExpenseDto.Amount;
             await _context.SaveChangesAsync();
             var total = updateExpenseDto.Payers.Sum(p => p.Share);
+            if (updateExpenseDto.ShareType.Equals(PercentageShareType, StringComparison.OrdinalIgnoreCase))
+            {
+                ConvertPercentShareToAmount(updateExpenseDto.ExpenseSharedMembers, total);
+            }
+
             List<ExpenseShares> expenseSharesList = [];
             List<ExpensePayers> expensePayersList = [];
 
@@ -407,36 +414,65 @@ public class ExpenseService : IExpenseService
                 await UpdateUserBalanceOnExpenseDeletionOrModification(member.OwedByUserId, member.OwesToUserId,
                     existingExpense.GroupId, member.AmountOwed);
             }
-
+            await _context.SaveChangesAsync();
+            var expenseSharedMembers = _context.ExpenseShares.Where(es => es.ExpenseId == existingExpense.Id)
+                .AsNoTracking()
+                .Select(es=>es.OwedByUserId)
+                .Distinct()
+                .ToList();
+            var newExpenseSharedMembers = updateExpenseDto.ExpenseSharedMembers.Select(e => e.UserId);
+            var expenseSharedMembersToBeDeleted = expenseSharedMembers.Except(newExpenseSharedMembers).ToList();
+            
             var newExpensePayersId = updateExpenseDto.Payers.Select(p => p.UserId);
             var dbExpensePayersId = await _context.ExpensePayers.Where(ep => ep.ExpenseId == existingExpense.Id)
-                .Select(ep => ep.PayerId).ToListAsync();
+                .Select(ep => ep.PayerId)
+                .AsNoTracking()
+                .ToListAsync();
+
             var payersToBeDeleted = dbExpensePayersId.Except(newExpensePayersId).ToList();
 
+            if (expenseSharedMembersToBeDeleted.Count > 0)
+            {
+                foreach (var expenseSharedMember in expenseSharedMembersToBeDeleted)
+                {
+                    await _context.ExpenseShares.Where(ep => ep.OwedByUserId == expenseSharedMember && ep.ExpenseId == existingExpense.Id)
+                        .AsNoTracking()
+                        .ExecuteDeleteAsync();
+                }
+            }
             // remove the expense Payer
             if (payersToBeDeleted.Count > 0)
             {
                 foreach (var payer in payersToBeDeleted)
                 {
-                    await _context.ExpensePayers.Where(ep => ep.PayerId == payer).ExecuteDeleteAsync();
+                    await _context.ExpensePayers.Where(ep => ep.PayerId == payer)
+                        .AsNoTracking()
+                        .ExecuteDeleteAsync();
                 }
             }
+
+            await _context.SaveChangesAsync();
 
             foreach (var payer in updateExpenseDto.Payers)
             {
                 var userPayer = await _userService.GetUserIdOrThrowAsync(payer.UserId);
                 var existingPayerOfExpense =
-                    await _context.ExpensePayers.Where(p => p.PayerId == payer.UserId).FirstOrDefaultAsync();
+                    await _context.ExpensePayers.Where(p => p.PayerId == payer.UserId && p.ExpenseId == existingExpense.Id)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync();
                 if (existingPayerOfExpense is null)
                 {
                     var newPayer = CreateExpensePayerAsync(existingExpense, userPayer, payer.Share);
                     expensePayersList.Add(newPayer);
                 }
-
+                else
+                {
+                    existingPayerOfExpense.AmountPaid = payer.Share;
+                }
                 await UpdateExpenseSharesForPayer(updateExpenseDto, payer, total, expenseSharesList, userPayer,
                     existingExpense, group);
             }
-
+            await _context.SaveChangesAsync();
             await _context.ExpenseShares.AddRangeAsync(expenseSharesList);
             await _context.ExpensePayers.AddRangeAsync(expensePayersList);
             await _context.SaveChangesAsync();
@@ -480,9 +516,11 @@ public class ExpenseService : IExpenseService
             var amountOwed = proportionOfDebtCovered * member.Share;
             var existingExpenseShare = await _context.ExpenseShares
                 .Where(es =>
-                    es.OwesToUserId == expensePayer.UserId && es.OwedByUserId == payerUser.Id &&
+                    es.OwesToUserId == expensePayer.UserId && es.OwedByUserId == memberUser.Id &&
                     es.ExpenseId == newExpense.Id)
+                .AsNoTracking()
                 .FirstOrDefaultAsync();
+            
             if (existingExpenseShare is null)
             {
                 var expenseShare = new ExpenseShares
@@ -557,7 +595,7 @@ public class ExpenseService : IExpenseService
 
         if (userBalance == null)
         {
-            var newUserBalance = new UserBalances
+            var newUserBalance = new UserBalances()
             {
                 GroupId = group.Id,
                 Group = group,
@@ -639,10 +677,4 @@ public class ExpenseService : IExpenseService
             };
         }
     }
-
-  
 }
-
-
-
-

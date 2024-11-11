@@ -1,10 +1,12 @@
 using Auth.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Splitwise_Back.Controllers;
+using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Models.DTOs;
 using Splitwise_Back.Services.ExternalServices;
+using Splitwise_Back.Services.UserBalance;
 
 namespace Splitwise_Back.Services.User;
 
@@ -12,16 +14,23 @@ public class UserService : IUserService
 {
     private readonly ILogger<UserController> _logger;
     private readonly CloudinaryService _cloudinary;
+    private readonly AppDbContext _context;
     private readonly ITokenService _tokenService;
     private readonly UserManager<CustomUsers> _userManager;
+    private readonly IUserBalanceService _userBalanceService;
 
     public UserService(ILogger<UserController> logger, CloudinaryService cloudinary,
-        UserManager<CustomUsers> userManager, ITokenService tokenService)
+        UserManager<CustomUsers> userManager, 
+        ITokenService tokenService, 
+        IUserBalanceService userBalanceService,
+        AppDbContext context)
     {
         _logger = logger;
         _cloudinary = cloudinary;
         _userManager = userManager;
         _tokenService = tokenService;
+        _userBalanceService = userBalanceService;
+        _context = context;
     }
 
     public async Task<ResponseResults<AuthResults>> CreateUserAsync(UserRegistrationDto newUser, IFormFile image)
@@ -235,33 +244,67 @@ public class UserService : IUserService
 
     public async Task<ResponseResults<string>> DeleteUser(string userId)
     {
-        var user = await _userManager.FindByIdAsync(userId);
-        if (user is null)
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user is null)
+            {
+                return new ResponseResults<string>()
+                {
+                    Data = "Email Not Registered",
+                    StatusCode = 404,
+                    Success = false,
+                };
+            }
+
+            
+            var isUserSettled = await _userBalanceService.ValidateUserBalances(userId);
+            if (!isUserSettled)
+            {
+                return new ResponseResults<string>()
+                {
+                    Data = "User not Settled",
+                    StatusCode = 404,
+                    Success = false
+                };
+            }
+            
+            // check and delete every group created by this user and return success or false
+            
+            
+            // remove the use from every group
+            if(user.ImageUrl != null)
+                await _cloudinary.DeleteImageByPublicIc(user.ImageUrl);
+            
+            var isDeleted = await _userManager.DeleteAsync(user);
+            if (!isDeleted.Succeeded)
+            {
+                return new ResponseResults<string>()
+                {
+                    Data = "Server Error.",
+                    StatusCode = 500,
+                    Success = false,
+                };
+            }
+            await transaction.CommitAsync();
             return new ResponseResults<string>()
             {
-                Data = "Email Not Registered",
-                StatusCode = 404,
-                Success = false,
+                Data = "User Deleted Successfully.",
+                StatusCode = 200,
+                Success = true,
             };
         }
-        var isDeleted = await _userManager.DeleteAsync(user);
-        if (!isDeleted.Succeeded)
+        catch(Exception ex)
         {
+            await transaction.RollbackAsync();
             return new ResponseResults<string>()
             {
-                Data = "Server Error.",
+                Data = ex.Message,
                 StatusCode = 500,
                 Success = false,
             };
         }
-
-        return new ResponseResults<string>()
-        {
-            Data = "User Deleted Successfully.",
-            StatusCode = 200,
-            Success = true,
-        };
     }
 
     public ResponseResults<List<ReadUserDto>> GetAllUsers()
@@ -306,4 +349,5 @@ public class UserService : IUserService
             };
         }
     }
+    
 }

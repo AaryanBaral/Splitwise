@@ -14,6 +14,11 @@ namespace Splitwise_Back.Data
         public DbSet<UserBalances> UserBalances { get; set; }
         public DbSet<ExpensePayers> ExpensePayers { get; set; }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.EnableSensitiveDataLogging();
+        }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

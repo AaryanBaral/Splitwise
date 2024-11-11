@@ -18,6 +18,12 @@ namespace Splitwise_Back.Models.Dtos
         public string? UserName { get; set; }
         public string? Id { get; set; }
     }
+    
+    public class ReadExpensePayerDto{
+        public string? UserName { get; set; }
+        public string? Id { get; set; }
+        public decimal AmountPaid { get; set; }
+    }
 
     public class UpdateUserDto
     {

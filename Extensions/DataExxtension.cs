@@ -19,8 +19,12 @@ namespace Splitwise_Back.Data
         {
             // Data/GameStoreContext ==> used to connect to the database
             // Repositories => used to register servies under repositories to the application itself
-            var ConnString = configuration.GetConnectionString("Splitwise");
-            services.AddSqlServer<AppDbContext>(ConnString);
+            var connString = configuration.GetConnectionString("Splitwise");
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                options.UseSqlServer(connString);
+                options.EnableSensitiveDataLogging(); // Enable sensitive data logging here
+            });
             return services;
         }
     }

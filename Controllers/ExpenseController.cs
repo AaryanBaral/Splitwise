@@ -56,8 +56,9 @@ public class ExpenseController : ControllerBase
     [Route("update/{id}")]
     public async Task<IActionResult> UpdateExpense(string id, [FromBody] UpdateExpenseDto updateExpenseDto)
     {
-        await _expenseService.UpdateExpense(id, updateExpenseDto);
-        return Ok("Check Console");
+        var expenseResult = await _expenseService.UpdateExpense(id, updateExpenseDto);
+        return StatusCode(expenseResult.StatusCode,
+            new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
     }
 
     [HttpDelete]
