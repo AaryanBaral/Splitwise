@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Splitwise_Back.Configurations;
 using Splitwise_Back.Data;
+using Splitwise_Back.ExceptionHandler;
 using Splitwise_Back.Models;
 using Splitwise_Back.Services.Expense;
 using Splitwise_Back.Services.ExternalServices;
@@ -35,6 +36,7 @@ namespace Splitwise_Back.Extensions
             services.Configure<JwtConfig>(configuration.GetSection("JwtConfig"));
             services.AddJwtAuthentication(configuration);
             services.AddIdentityConfiguration();
+            services.AddExceptionHandler<GlobalExceptionHandler>();
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // services.AddSingleton<EmailService>();
             services.AddScoped<IExpenseService,ExpenseService>();
