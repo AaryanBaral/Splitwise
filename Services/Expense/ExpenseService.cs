@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
+using Splitwise_Back.Data.Transaction;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
-using Splitwise_Back.Services.Group;
 using Splitwise_Back.Services.User;
+using Splitwise_Back.Validation.Group;
 
 namespace Splitwise_Back.Services.Expense;
 
@@ -12,21 +13,24 @@ public class ExpenseService : IExpenseService
 {
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
-    private readonly IGroupService _groupService;
     private readonly IUserService _userService;
+    private readonly GroupValidation _groupValidation;
     private const string EqualShareType = "EQUAL";
     private const string UnequalShareType = "UNEQUAL";
     private const string PercentageShareType = "PERCENTAGE";
     private readonly List<string> _validShareTypes = [EqualShareType, UnequalShareType, PercentageShareType];
 
 
-    public ExpenseService(ILogger<ExpenseController> logger, AppDbContext context,
-        IGroupService groupService, IUserService userService)
+    public ExpenseService(
+        ILogger<ExpenseController> logger, 
+        AppDbContext context,
+        IUserService userService,
+        GroupValidation groupValidation)
     {
         _logger = logger;
         _context = context;
-        _groupService = groupService;
         _userService = userService;
+        _groupValidation = groupValidation;
     }
 
     public async Task<ResponseResults<string>> UpdateExpense(string expenseId, UpdateExpenseDto updateExpenseDto)
@@ -45,7 +49,7 @@ public class ExpenseService : IExpenseService
             }
 
 
-            var group = await _groupService.ValidateGroupAndMembers(updateExpenseDto);
+            var group = await _groupValidation.ValidateExpenseSharedMembersInGroup(updateExpenseDto.ExpenseSharedMembers, updateExpenseDto.GroupId);
 
             var expense = await _context.Expenses
                 .Include(e => e.ExpenseShares)
@@ -91,7 +95,6 @@ public class ExpenseService : IExpenseService
     /// </summary>
     public async Task<ResponseResults<ReadTestExpenseDto>> GetExpenseAsync(string expenseId)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             // Fetch the expense and related data in a single query with no tracking
@@ -270,7 +273,7 @@ public class ExpenseService : IExpenseService
             }
 
             // Validate Group
-            var group = await _groupService.ValidateGroupAndMembers(createExpenseDto);
+            var group = await _groupValidation.ValidateExpenseSharedMembersInGroup(createExpenseDto.ExpenseSharedMembers, createExpenseDto.GroupId);
 
             var newExpense = new Expenses()
             {
@@ -351,8 +354,7 @@ public class ExpenseService : IExpenseService
             };
         }
     }
-
-
+    
     private static void ValidateExpenseData(CreateExpenseDto createExpenseDto)
     {
         if (!createExpenseDto.Payers.Any())
@@ -638,7 +640,6 @@ public class ExpenseService : IExpenseService
 
     public async Task<ResponseResults<string>> DeleteExpense(string expenseId)
     {
-        var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var expense = await _context.Expenses
@@ -659,7 +660,6 @@ public class ExpenseService : IExpenseService
             await _context.ExpensePayers.Where(ep => ep.ExpenseId == expenseId).ExecuteDeleteAsync();
             await _context.Expenses.Where(exp => exp.Id == expenseId).ExecuteDeleteAsync();
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
             return new ResponseResults<string>()
             {
                 Data = "Expense deleted successfully",
@@ -669,7 +669,6 @@ public class ExpenseService : IExpenseService
         }
         catch (CustomException ex)
         {
-            await transaction.RollbackAsync();
             return new ResponseResults<string>()
             {
                 Success = false,
@@ -682,7 +681,6 @@ public class ExpenseService : IExpenseService
 
     public async Task DeleteAllExpenses(string groupId)
     {
-        var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var expenseIds = await _context.Expenses.Where(e => e.GroupId == groupId).Select(e => e.Id).ToListAsync();
@@ -694,10 +692,40 @@ public class ExpenseService : IExpenseService
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             throw new Exception(ex.Message);
-            
         }
         
     }
+
+
+    public async Task<List<ReadExpenseShareDto>> GetAllExpenseShares(string expenseId)
+    {
+        var expenseShares = await _context.ExpenseShares
+            .Where(e => e.ExpenseId == expenseId)
+            .Include(e=>e.OwesToUser)
+            .Include(e=>e.OwedByUser)
+            .ToListAsync();
+        var expenseShareDto = expenseShares.Select(e => new ReadExpenseShareDto()
+        {
+            AmountOwed = e.AmountOwed,
+            ShareType = e.ShareType.ToUpper(),
+            User = new AbstractReadUserDto()
+            {
+                Id = e.OwesToUserId,
+                UserName = e.OwesToUser.UserName
+            },
+            OwesUser = new AbstractReadUserDto()
+            {
+                Id = e.OwedByUserId,
+                UserName = e.OwedByUser.UserName
+            },
+        });
+        return expenseShareDto.ToList();
+    }
+    public void ThrowResults()
+    {
+        throw new KeyNotFoundException("The given key is not found");
+    }
+    
+    
 }

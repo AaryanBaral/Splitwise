@@ -1,12 +1,11 @@
-using AutoMapper;
-using Microsoft.AspNetCore.Identity;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
+using Splitwise_Back.Events.GroupEvents;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dto;
 using Splitwise_Back.Models.Dtos;
-using Splitwise_Back.Services.Expense;
 using Splitwise_Back.Services.User;
 using Splitwise_Back.Services.UserBalance;
 
@@ -15,22 +14,26 @@ namespace Splitwise_Back.Services.Group;
 public class GroupService : IGroupService
 
 {
+    private readonly IMediator _mediator;
     private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
-    private readonly UserManager<CustomUsers> _userManager;
     private readonly IUserService _userService;
     private readonly IUserBalanceService _userBalanceService;
-    private readonly IExpenseService _expenseService;
 
-    public GroupService(ILogger<ExpenseController> logger, AppDbContext context,
-        UserManager<CustomUsers> userManager, IUserService userService,IUserBalanceService userBalanceService, IExpenseService expenseService)
+    public GroupService(
+        IMediator mediator,
+        ILogger<ExpenseController> logger, 
+        AppDbContext context,
+        IUserService userService,
+        IUserBalanceService userBalanceService
+        )
     {
         _logger = logger;
         _context = context;
-        _userManager = userManager;
+        _mediator = mediator;
         _userService = userService;
         _userBalanceService = userBalanceService;
-        _expenseService = expenseService;
+
     }
 
     public async Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto)
@@ -45,16 +48,7 @@ public class GroupService : IGroupService
             };
         }
 
-        var creator = await _userManager.FindByIdAsync(createGroupDto.CreatedByUserId);
-        if (creator == null)
-        {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 400,
-                Errors = "The creator of the group doesn't exist"
-            };
-        }
+        var creator = await _userService.GetUserIdOrThrowAsync(createGroupDto.CreatedByUserId);
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -88,7 +82,7 @@ public class GroupService : IGroupService
                     continue;
                 }
 
-                var user = await _userManager.FindByIdAsync(userId);
+                var user = await _userService.GetUserIdOrThrowAsync(userId);
                 if (user is null)
                 {
                     throw new Exception("User Id must be valid");
@@ -128,79 +122,6 @@ public class GroupService : IGroupService
                 Errors = $"An error occurred while creating the group, {ex.Message}"
             };
         }
-    }
-
-    public async Task<Groups> ValidateGroup(string groupId)
-    {
-        return await _context.Groups.FindAsync(groupId) ?? throw new CustomException()
-        {
-            StatusCode = 400,
-            Errors = "Group not found"
-        };
-    }
-
-    public async Task<Groups> ValidateGroupAndMembers(CreateExpenseDto createExpenseDto)
-    {
-        // Validate Group
-        var group = await _context.Groups
-            .Include(g => g.GroupMembers)
-            .FirstOrDefaultAsync(g => g.Id == createExpenseDto.GroupId);
-        if (group is null)
-        {
-            throw new CustomException()
-            {
-                Errors = "Group does not exist",
-                StatusCode = 400
-            };
-        }
-
-
-        // Validate Share Participants
-        var userIdsInGroup = group.GroupMembers.Select(gm => gm.UserId).ToHashSet();
-        var invalidUsers = createExpenseDto.ExpenseSharedMembers.Where(es => !userIdsInGroup.Contains(es.UserId))
-            .ToList();
-        if (invalidUsers.Count != 0)
-        {
-            throw new CustomException()
-            {
-                Errors = "Members provided does not exist in group",
-                StatusCode = 400
-            };
-        }
-
-        return group;
-    }
-
-    public async Task<Groups> ValidateGroupAndMembers(UpdateExpenseDto createExpenseDto)
-    {
-        // Validate Group
-        var group = await _context.Groups
-            .Include(g => g.GroupMembers)
-            .FirstOrDefaultAsync(g => g.Id == createExpenseDto.GroupId);
-        if (group is null)
-        {
-            throw new CustomException()
-            {
-                Errors = "Group does not exist",
-                StatusCode = 400
-            };
-        }
-
-
-        // Validate Share Participants
-        var userIdsInGroup = group.GroupMembers.Select(gm => gm.UserId).ToHashSet();
-        var invalidUsers = createExpenseDto.ExpenseSharedMembers.Where(es => !userIdsInGroup.Contains(es.UserId))
-            .ToList();
-        if (invalidUsers.Count != 0)
-        {
-            throw new CustomException()
-            {
-                Errors = "Members provided does not exist in group",
-                StatusCode = 400
-            };
-        }
-
-        return group;
     }
 
     public async Task<ResponseResults<List<ReadGroupDto>>> GetAllGroups()
@@ -372,7 +293,7 @@ public class GroupService : IGroupService
         try
         {
             var usersToAdd = addToGroup.UserIds
-                .Select(userId => _userManager.FindByIdAsync(userId))
+                .Select(userId => _userService.GetUserIdOrThrowAsync(userId))
                 .ToList();
             var users = await Task.WhenAll(usersToAdd);
             var groupMembers = new List<GroupMembers>();
@@ -605,15 +526,8 @@ public class GroupService : IGroupService
         List<TransactionResults> transactionResultsList = [];
         foreach (var transaction in transactions)
         {
-            var payer = await _userManager.FindByIdAsync(transaction.PayerId);
-            var reviver = await _userManager.FindByIdAsync(transaction.ReceiverId);
-            if (reviver == null || payer == null)
-                return new ResponseResults<List<TransactionResults>>()
-                {
-                    Errors = "Users are null",
-                    Success = false,
-                    StatusCode = 404,
-                };
+            var payer = await _userService.GetUserIdOrThrowAsync(transaction.PayerId);
+            var reviver = await _userService.GetUserIdOrThrowAsync(transaction.ReceiverId);
             transactionResultsList.Add(new TransactionResults()
             {
                 Payer = new AbstractReadUserDto()
@@ -636,8 +550,7 @@ public class GroupService : IGroupService
             StatusCode = 200,
         };
     }
-
-
+    
     public async Task<ResponseResults<List<TransactionResults>>> SettleGroup(string id)
     {
         var transaction = await _context.Database.BeginTransactionAsync();
@@ -764,7 +677,8 @@ public class GroupService : IGroupService
             }
 
             var isGroupSettled = IsGroupSettled(id);
-            await _expenseService.DeleteAllExpenses(id);
+            var groupDeleteEvent = new GroupDeleteEvent(id);
+            await _mediator.Publish(groupDeleteEvent);
             await _userBalanceService.DeleteUserBalanceByGroup(id);
             if (!isGroupSettled)
             {

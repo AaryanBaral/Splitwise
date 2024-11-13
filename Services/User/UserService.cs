@@ -1,40 +1,44 @@
 using Auth.Helpers;
+using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
+using Splitwise_Back.Events.UserEvents;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Models.DTOs;
 using Splitwise_Back.Services.ExternalServices;
-using Splitwise_Back.Services.Group;
 using Splitwise_Back.Services.UserBalance;
 
 namespace Splitwise_Back.Services.User;
 
 public class UserService : IUserService
 {
+    private readonly IMediator _mediator;
     private readonly ILogger<UserController> _logger;
     private readonly CloudinaryService _cloudinary;
     private readonly AppDbContext _context;
     private readonly ITokenService _tokenService;
     private readonly UserManager<CustomUsers> _userManager;
     private readonly IUserBalanceService _userBalanceService;
-    private readonly IGroupService _groupService;
 
-    public UserService(ILogger<UserController> logger, CloudinaryService cloudinary,
+    public UserService(
+        IMediator mediator,
+        ILogger<UserController> logger,
+        CloudinaryService cloudinary,
         UserManager<CustomUsers> userManager, 
         ITokenService tokenService, 
         IUserBalanceService userBalanceService,
-        AppDbContext context,
-        IGroupService groupService)
+        AppDbContext context
+        )
     {
+        _mediator = mediator;
         _logger = logger;
         _cloudinary = cloudinary;
         _userManager = userManager;
         _tokenService = tokenService;
         _userBalanceService = userBalanceService;
         _context = context;
-        _groupService = groupService;
     }
 
     public async Task<ResponseResults<AuthResults>> CreateUserAsync(UserRegistrationDto newUser, IFormFile image)
@@ -101,8 +105,7 @@ public class UserService : IUserService
             };
         }
     }
-    
-    public async Task<CustomUsers> DoesUserExistsEmailAsync(string email)
+    private async Task<CustomUsers> DoesUserExistsEmailAsync(string email)
     {
         return await _userManager.FindByEmailAsync(email) ?? throw new CustomException()
         {
@@ -110,34 +113,6 @@ public class UserService : IUserService
             Errors = "Email address is invalid"
         };
     }
-
-    public async Task<ResponseResults<ReadUserDto>> GetSingleUserAsync(string email)
-    {
-        var user = await DoesUserExistsEmailAsync(email);
-
-        if (user.UserName == null || user.Email == null)
-        {
-            throw new CustomException()
-            {
-                StatusCode = 400,
-                Errors = "User is not valid"
-            };
-        }
-
-        return new ResponseResults<ReadUserDto>()
-        {
-            StatusCode = 200,
-            Success = true,
-            Data = new ReadUserDto()
-            {
-                Id = user.Id,
-                UserName = user.UserName,
-                ImageUrl = user.ImageUrl,
-                Email = user.Email,
-            },
-        };
-    }
-
     public async Task<ResponseResults<string>> UpdateUser(string userId, UpdateUserDto updateUserDto, IFormFile? image)
     {
         try
@@ -191,8 +166,6 @@ public class UserService : IUserService
             };
         }
     }
-
-
     public async Task<ResponseResults<AuthResults>> LoginUser(UserLoginDto userLogin)
     {
         try
@@ -233,20 +206,7 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<CustomUsers> GetUserIdOrThrowAsync(string userId)
-    {
-        return await _userManager.FindByIdAsync(userId) ?? throw new CustomException()
-        {
-            StatusCode = 404,
-            Errors = "User does not exist"
-        };
-    }
-    public async Task<CustomUsers?> GetUserIdOrReturnNull(string userId)
-    {
-        return await _userManager.FindByIdAsync(userId);
-    }
-
-    public async Task<ResponseResults<string>> DeleteUser(string userId)
+    public async Task<ResponseResults<string>> DeleteUser(string userId, string CurrentUserId)
     {
         var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -273,17 +233,9 @@ public class UserService : IUserService
                     Success = false
                 };
             }
-            
-            // check and delete every group created by this user and return success or false
-            var groups = await _groupService.GetGroupByCreator(userId);
-            if (groups.Data is not null)
-            {
-                foreach (var group in groups.Data)
-                {
-                    await _groupService.DeleteGroup(group.Id, userId);
-                }
-            }
-            
+
+            var userDeleteEvent = new UserDeleteEvent(userId, CurrentUserId);
+            await _mediator.Publish(userDeleteEvent);
             // remove the user from every group
             
             if(user.ImageUrl != null)
@@ -318,7 +270,6 @@ public class UserService : IUserService
             };
         }
     }
-
     public ResponseResults<List<ReadUserDto>> GetAllUsers()
     {
         try
@@ -360,6 +311,38 @@ public class UserService : IUserService
                 Success = false,
             };
         }
+    }
+    public async Task<ResponseResults<ReadUserDto>> GetSingleUsersAsync(string id)
+    {
+        var user = await GetUserIdOrThrowAsync(id);
+        if (user.Email is null || user.UserName is null)
+        {
+            throw new CustomException()
+            {
+                StatusCode = 400,
+                Errors = "Email address is invalid"
+            };
+        }
+
+        return new ResponseResults<ReadUserDto>()
+        {
+            Data = new ReadUserDto()
+            {
+                Id = user.Id,
+                Email = user.Email,
+                UserName = user.UserName
+            },
+            Success = true,
+            StatusCode = 200,
+        };
+    }
+    public async Task<CustomUsers> GetUserIdOrThrowAsync(string userId)
+    {
+        return await _userManager.FindByIdAsync(userId) ?? throw new CustomException()
+        {
+            StatusCode = 404,
+            Errors = "User does not exist"
+        };
     }
     
 }

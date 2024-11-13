@@ -1,12 +1,9 @@
-using Auth.Helpers;
+
+using System.Security.Claims;
 using Splitwise_Back.Models.DTOs;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
-using Splitwise_Back.Services.ExternalServices;
 using Splitwise_Back.Services.User;
 
 
@@ -72,7 +69,12 @@ namespace Splitwise_Back.Controllers
         [Route("delete/{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
-            var results = await _userService.DeleteUser(id);
+            var userId = User.FindFirstValue("Id");
+            if (userId is null)
+            {
+                return StatusCode(401, "Not authorized");
+            }
+            var results = await _userService.DeleteUser(id, userId);
             return StatusCode(results.StatusCode, new
             {
                 Success = results.Success,
@@ -120,7 +122,7 @@ namespace Splitwise_Back.Controllers
         [Route("{id}")]
         public async Task<IActionResult> GetUserById(string id)
         {
-            var results = await _userService.GetSingleUserAsync(id);
+            var results = await _userService.GetSingleUsersAsync(id);
             return StatusCode(results.StatusCode, new
             {
                 Success = results.Success,

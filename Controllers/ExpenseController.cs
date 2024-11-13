@@ -1,7 +1,7 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Splitwise_Back.Data;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.Expense;
 
@@ -12,20 +12,33 @@ namespace Splitwise_Back.Controllers;
 [Route("api/[controller]")]
 public class ExpenseController : ControllerBase
 {
-    private readonly IExpenseService  _expenseService;
+    private readonly IExpenseService _expenseService;
+    private readonly AppDbContext _context;
 
-    public ExpenseController(IExpenseService expenseService)
+
+    public ExpenseController(IExpenseService expenseService, AppDbContext context)
     {
         _expenseService = expenseService;
+        _context = context;
     }
 
     [HttpGet]
     [Route("test/{id}")]
     public async Task<IActionResult> GetExpense(string id)
     {
-        var expenseResult = await _expenseService.GetExpenseAsync(id);
-        return StatusCode(expenseResult.StatusCode,
-            new { Id = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var expenseResult = await _expenseService.GetExpenseAsync(id);
+            await transaction.CommitAsync();
+            return StatusCode(expenseResult.StatusCode,
+                new { Id = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     [HttpPost]
@@ -49,7 +62,6 @@ public class ExpenseController : ControllerBase
         var expenseResult = await _expenseService.GetAllExpenses(groupId);
         return StatusCode(expenseResult.StatusCode,
             new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
-        
     }
 
     [HttpPut]
@@ -66,6 +78,23 @@ public class ExpenseController : ControllerBase
     public async Task<IActionResult> DeleteExpense(string id)
     {
         var result = await _expenseService.DeleteExpense(id);
-        return StatusCode(result.StatusCode, new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        return StatusCode(result.StatusCode,
+            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+    }
+
+    [HttpGet]
+    [Route("expenseshares/{id}")]
+    public async Task<IActionResult> GetAllExpenseShares(string id)
+    {
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            return Ok(await _expenseService.GetAllExpenseShares(id));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 }

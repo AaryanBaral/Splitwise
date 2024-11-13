@@ -1,34 +1,24 @@
-using System.Runtime.Intrinsics.Arm;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Splitwise_Back.Data;
-using Splitwise_Back.Models;
-using Splitwise_Back.Models.Dto;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.Group;
 
 namespace Splitwise_Back.Controllers;
 
-// [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 [ApiController]
 [Route("api/[controller]")]
 public class GroupController : Controller
 {
     private readonly ILogger<GroupController> _logger;
-    private readonly AppDbContext _context;
-    private readonly UserManager<CustomUsers> _userManager;
     private readonly IGroupService _groupService;
 
-    public GroupController(ILogger<GroupController> logger, AppDbContext context, UserManager<CustomUsers> userManager,
+    public GroupController(ILogger<GroupController> logger,
         IGroupService groupService)
     {
         _logger = logger;
-        _context = context;
-        _userManager = userManager;
         _groupService = groupService;
     }
 

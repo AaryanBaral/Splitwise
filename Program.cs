@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Diagnostics;
 using Splitwise_Back.Configurations;
 using Splitwise_Back.Data;
 using Splitwise_Back.Extensions;
@@ -18,7 +19,19 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseExceptionHandler();
+app.UseExceptionHandler(handler =>
+{
+    handler.Run(async context =>
+    {
+        var exceptionHandler = context.RequestServices.GetRequiredService<IExceptionHandler>();
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception != null)
+        {
+            await exceptionHandler.TryHandleAsync(context, exception, context.RequestAborted);
+        }
+    });
+});
 app.MapControllers();
 
 app.Run();
