@@ -1,7 +1,7 @@
-
 using System.Security.Claims;
 using Splitwise_Back.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Splitwise_Back.Data;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.User;
@@ -15,16 +15,19 @@ namespace Splitwise_Back.Controllers
     public class UserController : Controller
     {
         private readonly IUserService _userService;
-        
+        private readonly AppDbContext _context;
 
-        public UserController(   IUserService userService)
+
+        public UserController(IUserService userService, AppDbContext context)
         {
             _userService = userService;
+            _context = context;
         }
 
         [HttpPost]
         [Route("register")]
-        public async Task<IActionResult> RegisterUser([FromForm] UserRegistrationDto newUser, [FromForm(Name = "Image")] IFormFile image)
+        public async Task<IActionResult> RegisterUser([FromForm] UserRegistrationDto newUser,
+            [FromForm(Name = "Image")] IFormFile image)
         {
             if (!ModelState.IsValid)
             {
@@ -34,13 +37,24 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid Payload"]
                 });
             }
-            var results = await _userService.CreateUserAsync(newUser, image);
-            return StatusCode(results.StatusCode, new
+
+            var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Success = results.Success,
-                Data = results.Data,
-                Errors = results.Errors,
-            });
+                var results = await _userService.CreateUserAsync(newUser, image);
+                await transaction.CommitAsync();
+                return StatusCode(results.StatusCode, new
+                {
+                    Success = results.Success,
+                    Data = results.Data,
+                    Errors = results.Errors,
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpPost]
@@ -55,14 +69,24 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid payload"]
                 });
             }
-            var results = await _userService.LoginUser(userLogin);
-            return StatusCode(results.StatusCode, new
+
+            var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Success = results.Success,
-                Data = results.Data,
-                Errors = results.Errors,
-            });
-            
+                var results = await _userService.LoginUser(userLogin);
+                await transaction.CommitAsync();
+                return StatusCode(results.StatusCode, new
+                {
+                    Success = results.Success,
+                    Data = results.Data,
+                    Errors = results.Errors,
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpDelete]
@@ -74,19 +98,31 @@ namespace Splitwise_Back.Controllers
             {
                 return StatusCode(401, "Not authorized");
             }
-            var results = await _userService.DeleteUser(id, userId);
-            return StatusCode(results.StatusCode, new
+
+            var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Success = results.Success,
-                Data = results.Data,
-                Errors = results.Errors,
-            });
+                var results = await _userService.DeleteUser(id, userId);
+                await transaction.CommitAsync();
+                return StatusCode(results.StatusCode, new
+                {
+                    Success = results.Success,
+                    Data = results.Data,
+                    Errors = results.Errors,
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         // Api testing Remaining for update
         [HttpPut]
         [Route("update/{id}")]
-        public async Task<IActionResult> UpdateUser(string id, [FromForm] UpdateUserDto updateUser,[FromForm(Name = "Image")] IFormFile? Image = null)
+        public async Task<IActionResult> UpdateUser(string id, [FromForm] UpdateUserDto updateUser,
+            [FromForm(Name = "Image")] IFormFile? Image = null)
         {
             if (!ModelState.IsValid)
             {
@@ -96,13 +132,24 @@ namespace Splitwise_Back.Controllers
                     Errors = ["Invalid payload"]
                 });
             }
-            var results = await _userService.UpdateUser(id, updateUser, Image);
-            return StatusCode(results.StatusCode, new
+
+            var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Success = results.Success,
-                Data = results.Data,
-                Errors = results.Errors,
-            });
+                var results = await _userService.UpdateUser(id, updateUser, Image);
+                await transaction.CommitAsync();
+                return StatusCode(results.StatusCode, new
+                {
+                    Success = results.Success,
+                    Data = results.Data,
+                    Errors = results.Errors,
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         [HttpGet]
@@ -116,8 +163,8 @@ namespace Splitwise_Back.Controllers
                 Errors = results.Errors,
             });
         }
-        
-        
+
+
         [HttpGet]
         [Route("{id}")]
         public async Task<IActionResult> GetUserById(string id)

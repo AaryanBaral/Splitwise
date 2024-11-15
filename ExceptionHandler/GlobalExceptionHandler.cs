@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Net;
+using Azure;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +55,8 @@ public class GlobalExceptionHandler : IExceptionHandler
             InvalidCastException => ((int)HttpStatusCode.BadRequest, exception.Message),
             FormatException => ((int)HttpStatusCode.BadRequest, exception.Message),
             KeyNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            AuthenticationFailureException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            RequestFailedException => ((int)HttpStatusCode.BadRequest, exception.Message),
             SqlException sqlEx => HandleSqlException(sqlEx), // Direct handling of SqlException
             _ => ((int)HttpStatusCode.InternalServerError, "Internal Server Error"),
         };

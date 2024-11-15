@@ -22,106 +22,83 @@ public class GroupService : IGroupService
 
     public GroupService(
         IMediator mediator,
-        ILogger<ExpenseController> logger, 
+        ILogger<ExpenseController> logger,
         AppDbContext context,
         IUserService userService,
         IUserBalanceService userBalanceService
-        )
+    )
     {
         _logger = logger;
         _context = context;
         _mediator = mediator;
         _userService = userService;
         _userBalanceService = userBalanceService;
-
     }
 
     public async Task<ResponseResults<string>> CreateGroupAsync(CreateGroupDto createGroupDto)
     {
         if (createGroupDto.UserIds is null || createGroupDto.UserIds.Count < 2)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 400,
-                Errors = "The group must contain more than one member"
-            };
+            throw new ArgumentException("The group must contain more than one member");
         }
 
         var creator = await _userService.GetUserIdOrThrowAsync(createGroupDto.CreatedByUserId);
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        Groups newGroup = new()
         {
-            Groups newGroup = new()
+            GroupName = createGroupDto.GroupName,
+            Description = createGroupDto.Description,
+            CreatedByUserId = createGroupDto.CreatedByUserId,
+            CreatedByUser = creator,
+            DateCreated = DateTime.Now
+        };
+        _context.Groups.Add(newGroup);
+        await _context.SaveChangesAsync();
+        var groupMembers = new List<GroupMembers>
+        {
+            new()
             {
-                GroupName = createGroupDto.GroupName,
-                Description = createGroupDto.Description,
-                CreatedByUserId = createGroupDto.CreatedByUserId,
-                CreatedByUser = creator,
-                DateCreated = DateTime.Now
-            };
-            _context.Groups.Add(newGroup);
-            await _context.SaveChangesAsync();
-            var groupMembers = new List<GroupMembers>
+                GroupId = newGroup.Id,
+                UserId = createGroupDto.CreatedByUserId,
+                IsAdmin = true,
+                Group = newGroup,
+                User = creator,
+                JoinDate = DateTime.Now
+            }
+        };
+        foreach (var userId in createGroupDto.UserIds)
+        {
+            if (userId == createGroupDto.CreatedByUserId)
             {
-                new()
-                {
-                    GroupId = newGroup.Id,
-                    UserId = createGroupDto.CreatedByUserId,
-                    IsAdmin = true,
-                    Group = newGroup,
-                    User = creator,
-                    JoinDate = DateTime.Now
-                }
-            };
-            foreach (var userId in createGroupDto.UserIds)
-            {
-                if (userId == createGroupDto.CreatedByUserId)
-                {
-                    continue;
-                }
-
-                var user = await _userService.GetUserIdOrThrowAsync(userId);
-                if (user is null)
-                {
-                    throw new Exception("User Id must be valid");
-                }
-
-                groupMembers.Add(new GroupMembers
-                {
-                    GroupId = newGroup.Id,
-                    UserId = user.Id,
-                    IsAdmin = false,
-                    User = user,
-                    Group = newGroup,
-                    JoinDate = DateTime.Now
-                });
+                continue;
             }
 
-            await _context.GroupMembers.AddRangeAsync(groupMembers);
-            await _context.SaveChangesAsync();
+            var user = await _userService.GetUserIdOrThrowAsync(userId);
+            if (user is null)
+            {
+                throw new KeyNotFoundException("The user could not be found");
+            }
 
-            await transaction.CommitAsync();
-            return new ResponseResults<string>()
+            groupMembers.Add(new GroupMembers
             {
-                Success = true,
-                StatusCode = 200,
-                Data = newGroup.Id
-            };
+                GroupId = newGroup.Id,
+                UserId = user.Id,
+                IsAdmin = false,
+                User = user,
+                Group = newGroup,
+                JoinDate = DateTime.Now
+            });
         }
-        catch (Exception ex)
+
+        await _context.GroupMembers.AddRangeAsync(groupMembers);
+        await _context.SaveChangesAsync();
+
+        return new ResponseResults<string>()
         {
-            // Rollback the transaction in case of any error
-            await transaction.RollbackAsync();
-            _logger.LogError(ex, "An error occurred while adding members to the group: {Message}", ex.Message);
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 400,
-                Errors = $"An error occurred while creating the group, {ex.Message}"
-            };
-        }
+            Success = true,
+            StatusCode = 200,
+            Data = newGroup.Id
+        };
     }
 
     public async Task<ResponseResults<List<ReadGroupDto>>> GetAllGroups()
@@ -132,12 +109,7 @@ public class GroupService : IGroupService
             .ToListAsync();
         if (allGroups.Count == 0)
         {
-            return new ResponseResults<List<ReadGroupDto>>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "No groups found"
-            };
+            throw new KeyNotFoundException("No groups found");
         }
 
         var readGroupDto = allGroups.Select(g => new ReadGroupDto
@@ -171,12 +143,7 @@ public class GroupService : IGroupService
             .ToArrayAsync();
         if (groups.Length < 1)
         {
-            return new ResponseResults<List<ReadGroupDto>>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "No groups found"
-            };
+            throw new KeyNotFoundException("No groups found");
         }
 
         var readGroupDto = groups.Select(g => new ReadGroupDto
@@ -206,12 +173,7 @@ public class GroupService : IGroupService
         var group = await _context.Groups.FindAsync(id);
         if (group is null)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "No group found"
-            };
+            throw new KeyNotFoundException("No group found");
         }
 
         var groupAdminId = await _context.GroupMembers
@@ -222,23 +184,13 @@ public class GroupService : IGroupService
 
         if (groupAdminId == null)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "Group doesn't have any admin"
-            };
+            throw new ArgumentException("Group doesn't have any admin");
         }
 
 
         if (groupAdminId != currentUserId)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "Only Group Admin can apply changes to the group"
-            };
+            throw new UnauthorizedAccessException("Only Group Admin can apply changes to the group");
         }
 
         group.Description = updateGroup.Description;
@@ -257,12 +209,7 @@ public class GroupService : IGroupService
     {
         if (addToGroup.UserIds.Count == 0)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "please select members to be added"
-            };
+            throw new ArgumentException("please select members to be added");
         }
 
         var group = await _context.Groups
@@ -271,154 +218,86 @@ public class GroupService : IGroupService
 
         if (group is null)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "No groups found"
-            };
+            throw new KeyNotFoundException("No group found");
         }
 
         if ((group.GroupMembers.Count + addToGroup.UserIds.Count) > 50)
         {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 404,
-                Errors = "Group cannot have more than 50 members"
-            };
+            throw new ArgumentException("Group cannot have more than 50 members");
         }
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var usersToAdd = addToGroup.UserIds
+            .Select(userId => _userService.GetUserIdOrThrowAsync(userId))
+            .ToList();
+        var users = await Task.WhenAll(usersToAdd);
+        var groupMembers = new List<GroupMembers>();
+        foreach (var user in users)
         {
-            var usersToAdd = addToGroup.UserIds
-                .Select(userId => _userService.GetUserIdOrThrowAsync(userId))
-                .ToList();
-            var users = await Task.WhenAll(usersToAdd);
-            var groupMembers = new List<GroupMembers>();
-            foreach (var user in users)
+            if (user is null)
             {
-                if (user is null)
-                {
-                    throw new Exception("provide a list of valid user Ids");
-                }
-
-                groupMembers.Add(new GroupMembers
-                {
-                    GroupId = group.Id,
-                    UserId = user.Id,
-                    IsAdmin = false,
-                    Group = group,
-                    User = user,
-                    JoinDate = DateTime.Now
-                });
-                if (groupMembers.Count == 0)
-                {
-                    return new ResponseResults<string>()
-                    {
-                        Success = false,
-                        StatusCode = 404,
-                        Errors = "No user found"
-                    };
-                }
-
-                await _context.GroupMembers.AddRangeAsync(groupMembers);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                throw new ArgumentException("provide a list of valid user Ids");
             }
 
-            return new ResponseResults<string>()
+            groupMembers.Add(new GroupMembers
             {
-                Data = "Members successfully removed from the group",
-                StatusCode = 200,
-                Success = true
-            };
+                GroupId = group.Id,
+                UserId = user.Id,
+                IsAdmin = false,
+                Group = group,
+                User = user,
+                JoinDate = DateTime.Now
+            });
+            if (groupMembers.Count == 0)
+            {
+                throw new KeyNotFoundException("No Users Found");
+            }
+
+            await _context.GroupMembers.AddRangeAsync(groupMembers);
+            await _context.SaveChangesAsync();
         }
-        catch (Exception ex)
+
+        return new ResponseResults<string>()
         {
-            await transaction.RollbackAsync();
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 500,
-                Errors = ex.Message
-            };
-        }
+            Data = "Members successfully removed from the group",
+            StatusCode = 200,
+            Success = true
+        };
     }
 
     public async Task<ResponseResults<string>> RemoveMembersFromGroup(RemoveFromGroupDto removeFromGroupDto, string id)
     {
-        try
+        if (removeFromGroupDto.UserIds.Count == 0)
+            throw new ArgumentException("please select members to be deleted");
+
+
+        var group = await _context.Groups
+                        .Include(g => g.GroupMembers)
+                        .FirstOrDefaultAsync(g => g.Id == id)
+                    ?? throw new KeyNotFoundException("No group found");
+
+
+        var membersToRemove = group
+            .GroupMembers
+            .Where(gm => removeFromGroupDto.UserIds.Contains(gm.UserId))
+            .ToList();
+
+        if (membersToRemove.Count <= 0)
+            throw new ArgumentException("No users provided exist in the group");
+
+
+        if ((group.GroupMembers.Count - membersToRemove.Count) < 2)
+            throw new ArgumentException(
+                "Removing members will make a group of single user either delete or reduce the list of members");
+
+
+        _context.GroupMembers.RemoveRange(membersToRemove);
+        await _context.SaveChangesAsync();
+        return new ResponseResults<string>()
         {
-            if (removeFromGroupDto.UserIds.Count == 0)
-            {
-                return new ResponseResults<string>()
-                {
-                    Success = false,
-                    StatusCode = 404,
-                    Errors = "please select members to be deleted"
-                };
-            }
-
-            var group = await _context.Groups
-                .Include(g => g.GroupMembers)
-                .FirstOrDefaultAsync(g => g.Id == id);
-
-            if (group is null)
-            {
-                return new ResponseResults<string>()
-                {
-                    Success = false,
-                    StatusCode = 404,
-                    Errors = "No groups found"
-                };
-            }
-
-            var membersToRemove = group
-                .GroupMembers
-                .Where(gm => removeFromGroupDto.UserIds.Contains(gm.UserId))
-                .ToList();
-
-            if (membersToRemove.Count <= 0)
-            {
-                return new ResponseResults<string>()
-                {
-                    Success = false,
-                    StatusCode = 404,
-                    Errors = "No users provided exist in the group"
-                };
-            }
-
-            if ((group.GroupMembers.Count - membersToRemove.Count) < 2)
-            {
-                return new ResponseResults<string>()
-                {
-                    Success = false,
-                    StatusCode = 404,
-                    Errors =
-                        "Removing members will make a group of single user either delete or reduce the list of members"
-                };
-            }
-
-            _context.GroupMembers.RemoveRange(membersToRemove);
-            await _context.SaveChangesAsync();
-            return new ResponseResults<string>()
-            {
-                Data = "Members successfully removed from the group",
-                StatusCode = 200,
-                Success = true
-            };
-        }
-        catch (Exception ex)
-        {
-            return new ResponseResults<string>()
-            {
-                Success = false,
-                StatusCode = 500,
-                Errors = ex.Message
-            };
-        }
+            Data = "Members successfully removed from the group",
+            StatusCode = 200,
+            Success = true
+        };
     }
 
     public async Task<ResponseResults<List<TransactionResults>>> GetSettlementOfGroupByGreedy(string id)
@@ -469,29 +348,15 @@ public class GroupService : IGroupService
         }
 
         if (userBalanceSheet.Count != dbUserBalanceSheet.Count)
-            return new ResponseResults<List<TransactionResults>>()
-            {
-                Errors = "The error occurred because the data is not accurate ",
-                Success = false,
-                StatusCode = 400,
-            };
+            throw new InvalidDataException("The data is inaccurate so the process could not be completed");
+
         foreach (var dbKey in dbUserBalanceSheet)
         {
             if (!userBalanceSheet.TryGetValue(dbKey.Key, out var value))
-                return new ResponseResults<List<TransactionResults>>()
-                {
-                    Errors = "The error occurred because the data is not accurate ",
-                    Success = false,
-                    StatusCode = 400,
-                };
-            Console.WriteLine($"{dbKey.Key}: {dbKey.Value}, {value}");
+                throw new InvalidDataException("The data is inaccurate so the process could not be completed");
+
             if (dbKey.Value != value)
-                return new ResponseResults<List<TransactionResults>>()
-                {
-                    Errors = "The error occurred because the data is not accurate ",
-                    Success = false,
-                    StatusCode = 400,
-                };
+                throw new InvalidDataException("The data is inaccurate so the process could not be completed");
         }
 
         var transactions = new List<Transaction>();
@@ -499,8 +364,9 @@ public class GroupService : IGroupService
             .ToList();
         var receivers = dbUserBalanceSheet.Where(b => b.Value > 0).Select(b => new { Id = b.Key, Amount = b.Value })
             .ToList();
-        int i = 0, j = 0;
 
+
+        int i = 0, j = 0;
         // Settle debts with a two-pointer approach and log transactions
         while (i < payers.Count && j < receivers.Count)
         {
@@ -543,6 +409,7 @@ public class GroupService : IGroupService
                 Amount = transaction.Amount
             });
         }
+
         return new ResponseResults<List<TransactionResults>>()
         {
             Data = transactionResultsList,
@@ -550,169 +417,96 @@ public class GroupService : IGroupService
             StatusCode = 200,
         };
     }
-    
+
     public async Task<ResponseResults<List<TransactionResults>>> SettleGroup(string id)
     {
-        var transaction = await _context.Database.BeginTransactionAsync();
-        try
-        {
-            var group = await _context.Groups.FindAsync(id);
-            if (group is null)
-            {
-                return new ResponseResults<List<TransactionResults>>()
-                {
-                    Errors = "Group not found",
-                    Success = false,
-                    StatusCode = 404
-                };
-            }
-            var transactionsResult = await GetSettlementOfGroupByGreedy(id);
-            var userBalance = await _context.UserBalances.Where(ub=>ub.GroupId == id)
-                .ToListAsync();
-            if (transactionsResult.Data is null)
-            {
-                return transactionsResult;
-            }
-            var transactions = transactionsResult.Data;
-            List<Settlement> settlements = [];
-            foreach (var transact in transactions)
-            {
-                if (transact.Receiver.Id is null || transact.Payer.Id is null)
-                {
-                    return new ResponseResults<List<TransactionResults>>()
-                    {
-                        Errors = "The error occurred because the data is not accurate ",
-                        Success = false,
-                        StatusCode = 400,
-                    };
-                }
-                var receiver = await _userService.GetUserIdOrThrowAsync(transact.Receiver.Id);
-                var payer = await _userService.GetUserIdOrThrowAsync(transact.Payer.Id);
-                settlements.Add(new Settlement()
-                {
-                    GroupId = id,
-                    ReceiverId = transact.Receiver.Id,
-                    Receiver = receiver,
-                    PayerId = payer.Id,
-                    Payer = payer,
-                    Amount = transact.Amount,
-                    Group = group,
-                    SettlementDate = DateTime.UtcNow,
-                });
-            }
+        var group = await _context.Groups.FindAsync(id) ?? throw new KeyNotFoundException("Group Not Found");
 
-            await _context.Settlements.AddRangeAsync(settlements);
-            await _context.SaveChangesAsync();
-            foreach (var balance in userBalance)
-            {
-                balance.Balance = 0;
-            }
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return new ResponseResults<List<TransactionResults>>()
-            {
-                Data = transactionsResult.Data,
-                StatusCode = 200,
-                Success = true,
-            };
-        }
-        catch(Exception ex)
+        var transactionsResult = await GetSettlementOfGroupByGreedy(id);
+        var userBalance = await _context.UserBalances.Where(ub => ub.GroupId == id)
+            .ToListAsync();
+        if (transactionsResult.Data is null)
         {
-            await transaction.RollbackAsync();
-            return new ResponseResults<List<TransactionResults>>()
-            {
-                Errors = ex.Message,
-                Success = false,
-                StatusCode = 500,
-            };
+            return transactionsResult;
         }
+
+        var transactions = transactionsResult.Data;
+        List<Settlement> settlements = [];
+        foreach (var transact in transactions)
+        {
+            if (transact.Receiver.Id is null || transact.Payer.Id is null)
+                throw new KeyNotFoundException("Users not found ");
+
+            var receiver = await _userService.GetUserIdOrThrowAsync(transact.Receiver.Id);
+            var payer = await _userService.GetUserIdOrThrowAsync(transact.Payer.Id);
+            settlements.Add(new Settlement()
+            {
+                GroupId = id,
+                ReceiverId = transact.Receiver.Id,
+                Receiver = receiver,
+                PayerId = payer.Id,
+                Payer = payer,
+                Amount = transact.Amount,
+                Group = group,
+                SettlementDate = DateTime.UtcNow,
+            });
+        }
+
+        await _context.Settlements.AddRangeAsync(settlements);
+        await _context.SaveChangesAsync();
+        foreach (var balance in userBalance)
+        {
+            balance.Balance = 0;
+        }
+
+        await _context.SaveChangesAsync();
+        return new ResponseResults<List<TransactionResults>>()
+        {
+            Data = transactionsResult.Data,
+            StatusCode = 200,
+            Success = true,
+        };
     }
 
-    public bool IsGroupSettled(string id)
+    public void IsGroupSettled(string id)
     {
-        var unsettled = _context.UserBalances.Any(ub=>ub.GroupId == id && ub.Balance == 0);
-        return !unsettled;
+        var unsettled = _context.UserBalances.Any(ub => ub.GroupId == id && ub.Balance == 0);
+        if (!unsettled) throw new ArgumentException("The group is not settled");
     }
-    
+
     public async Task<ResponseResults<string>> DeleteGroup(string id, string currentUser)
     {
-        var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var group = await _context.Groups.FindAsync(id)
+                    ?? throw new KeyNotFoundException("Group Not Found");
+
+        var groupAdminId = await _context.GroupMembers
+                               .Where(g => g.GroupId == group.Id && g.IsAdmin == true)
+                               .Select(user => user.UserId)
+                               .AsNoTracking()
+                               .FirstOrDefaultAsync()
+                           ?? throw new KeyNotFoundException("User of the group Not Found");
+
+
+        if (groupAdminId != currentUser)
+            throw new UnauthorizedAccessException("Only the admin can Delete the group");
+
+        IsGroupSettled(id);
+        
+        var groupDeleteEvent = new GroupDeleteEvent(id);
+        await _mediator.Publish(groupDeleteEvent);
+        await _userBalanceService.DeleteUserBalanceByGroup(id);
+        
+ 
+
+        await _context.Groups
+            .Where(g => g.Id == group.Id)
+            .ExecuteDeleteAsync();
+        await _context.SaveChangesAsync();
+        return new ResponseResults<string>()
         {
-            var group = await _context.Groups.FindAsync(id);
-            if (group is null)
-            {
-                return new ResponseResults<string>()
-                {
-                    Errors = "Group not found",
-                    Success = false,
-                    StatusCode = 404
-                };
-            }
-
-            var groupAdminId = await _context.GroupMembers
-                .Where(g => g.GroupId == group.Id && g.IsAdmin == true)
-                .Select(user => user.UserId)
-                .AsNoTracking()
-                .FirstOrDefaultAsync();
-
-            if (groupAdminId is null)
-            {
-                return new ResponseResults<string>()
-                {
-                    Errors = "Group doesn't have any admin",
-                    Success = false,
-                    StatusCode = 400
-                };
-            }
-
-            if (groupAdminId != currentUser)
-            {
-                return new ResponseResults<string>()
-                {
-                    Errors = "Only group Admin can delete the group",
-                    Success = false,
-                    StatusCode = 401
-                };
-            }
-
-            var isGroupSettled = IsGroupSettled(id);
-            var groupDeleteEvent = new GroupDeleteEvent(id);
-            await _mediator.Publish(groupDeleteEvent);
-            await _userBalanceService.DeleteUserBalanceByGroup(id);
-            if (!isGroupSettled)
-            {
-                return new ResponseResults<string>()
-                {
-                    Errors = "Please settle the group before deleting it",
-                    Success = false,
-                    StatusCode = 404
-                };
-            }
-            await _context.Groups
-                .Where(g => g.Id == group.Id)
-                .ExecuteDeleteAsync();
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return new ResponseResults<string>()
-            {
-                Data = "Group Deleted Successfully",
-                Success = true,
-                StatusCode = 200
-            };
-
-        }
-        catch(Exception ex)
-        {
-            await transaction.RollbackAsync();
-            return new ResponseResults<string>()
-            {
-                Errors = ex.Message,
-                Success = false,
-                StatusCode = 404
-            };
-        }
-
+            Data = "Group Deleted Successfully",
+            Success = true,
+            StatusCode = 200
+        };
     }
-    
 }

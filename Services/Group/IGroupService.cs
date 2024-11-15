@@ -14,7 +14,7 @@ public interface IGroupService
     Task<ResponseResults<string>> AddMembersToGroup(AddToGroupDto addToGroup, string id);
    Task<ResponseResults<List<TransactionResults>>> GetSettlementOfGroupByGreedy(string id);
    Task<ResponseResults<List<TransactionResults>>> SettleGroup(string id);
-   public bool IsGroupSettled(string id);
+   public void IsGroupSettled(string id);
    Task<ResponseResults<string>> DeleteGroup(string id, string currentUser);
    Task<ResponseResults<List<ReadGroupDto>>> GetGroupByCreator(string id);
 

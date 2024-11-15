@@ -8,32 +8,28 @@ namespace Splitwise_Back.Services.ExternalServices
     {
         private readonly Cloudinary _cloudinary;
 
-        public CloudinaryService(Cloudinary cloudinary){
+        public CloudinaryService(Cloudinary cloudinary)
+        {
             _cloudinary = cloudinary;
         }
 
-        public async Task<string> UploadImage(IFormFile file){
-            var ImageId = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-            var uploadParameters = new ImageUploadParams{
+        public async Task<string> UploadImage(IFormFile file)
+        {
+            var imageId = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            var uploadParameters = new ImageUploadParams
+            {
                 File = new FileDescription(file.FileName, file.OpenReadStream()),
-                PublicId = ImageId
+                PublicId = imageId
             };
-            try{
-                var uploadResults = await _cloudinary.UploadAsync(uploadParameters);
-                var ImagePublicId = uploadResults.PublicId;
-                return uploadResults.SecureUrl.ToString();
-            }catch(Exception ex){
-                throw new Exception($"Server Error:{ex.Message}");
-            }
+            var uploadResults = await _cloudinary.UploadAsync(uploadParameters);
+            var imagePublicId = uploadResults.PublicId;
+            return uploadResults.SecureUrl.ToString();
         }
 
-        public async Task<bool> DeleteImageByPublicIc(string publicId){
-            try{
-                await _cloudinary.DestroyAsync(new DeletionParams(publicId));
-                return true;
-            }catch(Exception ex){
-                throw new Exception($"Server Error {ex.Message}");
-            }
+        public async Task<bool> DeleteImageByPublicIc(string publicId)
+        {
+            await _cloudinary.DestroyAsync(new DeletionParams(publicId));
+            return true;
         }
     }
 }

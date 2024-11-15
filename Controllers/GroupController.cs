@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Splitwise_Back.Data;
 using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.Group;
 
@@ -14,12 +15,14 @@ public class GroupController : Controller
 {
     private readonly ILogger<GroupController> _logger;
     private readonly IGroupService _groupService;
+    private readonly AppDbContext _context;
 
     public GroupController(ILogger<GroupController> logger,
-        IGroupService groupService)
+        IGroupService groupService, AppDbContext context)
     {
         _logger = logger;
         _groupService = groupService;
+        _context = context;
     }
 
     [HttpPost]
@@ -31,10 +34,19 @@ public class GroupController : Controller
             return BadRequest(ModelState);
         }
 
-        var result = await _groupService.CreateGroupAsync(groupDto);
-
-        return StatusCode(result.StatusCode,
-            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var result = await _groupService.CreateGroupAsync(groupDto);
+            await transaction.CommitAsync();
+            return StatusCode(result.StatusCode,
+                new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
 
@@ -59,15 +71,25 @@ public class GroupController : Controller
     [Route("delete/{id}")]
     public async Task<IActionResult> DeleteGroup(string id)
     {
-        var userId = User.FindFirstValue("Id");
-        if (userId is null)
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return StatusCode(401, "Not authorized");
-        }
+            var userId = User.FindFirstValue("Id");
+            if (userId is null)
+            {
+                return StatusCode(401, "Not authorized");
+            }
 
-        var result = await _groupService.DeleteGroup(id, userId);
-        return StatusCode(result.StatusCode,
-            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+            var result = await _groupService.DeleteGroup(id, userId);
+            await transaction.CommitAsync();
+            return StatusCode(result.StatusCode,
+                new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     [HttpPut]
@@ -79,29 +101,49 @@ public class GroupController : Controller
             return BadRequest(ModelState);
         }
 
-        var userId = User.FindFirstValue("Id");
-        if (userId is null)
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return StatusCode(401, "Not authorized");
-        }
+            var userId = User.FindFirstValue("Id");
+            if (userId is null)
+            {
+                return StatusCode(401, "Not authorized");
+            }
 
-        var result = await _groupService.UpdateGroup(updateGroup, id, userId);
-        return StatusCode(result.StatusCode,
-            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+            var result = await _groupService.UpdateGroup(updateGroup, id, userId);
+            await transaction.CommitAsync();
+            return StatusCode(result.StatusCode,
+                new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     [HttpPatch]
     [Route("remove/{id}")]
     public async Task<IActionResult> RemoveFromGroup(string id, [FromBody] RemoveFromGroupDto removeFromGroupDto)
     {
-        if (!ModelState.IsValid)
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return BadRequest(ModelState);
-        }
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-        var result = await _groupService.RemoveMembersFromGroup(removeFromGroupDto, id);
-        return StatusCode(result.StatusCode,
-            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+            var result = await _groupService.RemoveMembersFromGroup(removeFromGroupDto, id);
+            await transaction.CommitAsync();
+            return StatusCode(result.StatusCode,
+                new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     [HttpPatch]
@@ -113,17 +155,37 @@ public class GroupController : Controller
             return BadRequest(ModelState);
         }
 
-        var result = await _groupService.AddMembersToGroup(addToGroup, id);
-        return StatusCode(result.StatusCode,
-            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var result = await _groupService.AddMembersToGroup(addToGroup, id);
+            await transaction.CommitAsync();
+            return StatusCode(result.StatusCode,
+                new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     [HttpGet]
     [Route("settle/greedy/{id}")]
     public async Task<IActionResult> GetExpenseSettlementByGreedy(string id)
     {
-        var result = await _groupService.GetSettlementOfGroupByGreedy(id);
-        return StatusCode(result.StatusCode,
-            new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var result = await _groupService.GetSettlementOfGroupByGreedy(id);
+            await transaction.CommitAsync();
+            return StatusCode(result.StatusCode,
+                new { Data = result.Data, Success = result.Success, Errors = result.Errors });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 }
