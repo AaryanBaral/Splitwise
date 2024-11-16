@@ -50,7 +50,7 @@ public class ExpenseController : ControllerBase
             return StatusCode(expenseResult.StatusCode,
                 new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -85,7 +85,7 @@ public class ExpenseController : ControllerBase
             return StatusCode(expenseResult.StatusCode,
                 new { Data = expenseResult.Data, Success = expenseResult.Success, Errors = expenseResult.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -105,7 +105,7 @@ public class ExpenseController : ControllerBase
              return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;

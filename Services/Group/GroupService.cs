@@ -1,6 +1,5 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Splitwise_Back.Controllers;
 using Splitwise_Back.Data;
 using Splitwise_Back.Events.GroupEvents;
 using Splitwise_Back.Models;
@@ -15,20 +14,18 @@ public class GroupService : IGroupService
 
 {
     private readonly IMediator _mediator;
-    private readonly ILogger<ExpenseController> _logger;
     private readonly AppDbContext _context;
     private readonly IUserService _userService;
     private readonly IUserBalanceService _userBalanceService;
 
     public GroupService(
         IMediator mediator,
-        ILogger<ExpenseController> logger,
         AppDbContext context,
         IUserService userService,
         IUserBalanceService userBalanceService
     )
+    
     {
-        _logger = logger;
         _context = context;
         _mediator = mediator;
         _userService = userService;
@@ -491,7 +488,6 @@ public class GroupService : IGroupService
             throw new UnauthorizedAccessException("Only the admin can Delete the group");
 
         IsGroupSettled(id);
-        
         var groupDeleteEvent = new GroupDeleteEvent(id);
         await _mediator.Publish(groupDeleteEvent);
         await _userBalanceService.DeleteUserBalanceByGroup(id);
@@ -508,5 +504,14 @@ public class GroupService : IGroupService
             Success = true,
             StatusCode = 200
         };
+    }
+
+    public async Task<List<string>> GetGroupsWhereUserExists(string userId)
+    {
+        var groups = await _context.Groups
+            .Where(g => g.GroupMembers.Any(gm => gm.UserId == userId && !gm.IsAdmin))
+            .Select(g=>g.Id)
+            .ToListAsync();
+        return groups;
     }
 }

@@ -3,8 +3,6 @@ using Azure;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
-using Splitwise_Back.Controllers;
-using Splitwise_Back.Data;
 using Splitwise_Back.Events.UserEvents;
 using Splitwise_Back.Models;
 using Splitwise_Back.Models.Dtos;

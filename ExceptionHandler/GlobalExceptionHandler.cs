@@ -58,7 +58,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             AuthenticationFailureException => ((int)HttpStatusCode.BadRequest, exception.Message),
             RequestFailedException => ((int)HttpStatusCode.BadRequest, exception.Message),
             SqlException sqlEx => HandleSqlException(sqlEx), // Direct handling of SqlException
-            _ => ((int)HttpStatusCode.InternalServerError, "Internal Server Error"),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message),
         };
     }
 

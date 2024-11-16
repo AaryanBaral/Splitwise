@@ -8,7 +8,7 @@ using Splitwise_Back.Services.Group;
 
 namespace Splitwise_Back.Controllers;
 
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+// [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 [ApiController]
 [Route("api/[controller]")]
 public class GroupController : Controller
@@ -42,7 +42,7 @@ public class GroupController : Controller
             return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -85,7 +85,7 @@ public class GroupController : Controller
             return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -115,7 +115,7 @@ public class GroupController : Controller
             return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -139,7 +139,7 @@ public class GroupController : Controller
             return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -163,7 +163,7 @@ public class GroupController : Controller
             return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
@@ -182,7 +182,7 @@ public class GroupController : Controller
             return StatusCode(result.StatusCode,
                 new { Data = result.Data, Success = result.Success, Errors = result.Errors });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;

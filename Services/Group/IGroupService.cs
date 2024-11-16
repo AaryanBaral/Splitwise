@@ -17,5 +17,6 @@ public interface IGroupService
    public void IsGroupSettled(string id);
    Task<ResponseResults<string>> DeleteGroup(string id, string currentUser);
    Task<ResponseResults<List<ReadGroupDto>>> GetGroupByCreator(string id);
+   Task<List<string>> GetGroupsWhereUserExists(string userId);
 
 }

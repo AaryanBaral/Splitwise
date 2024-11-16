@@ -1,5 +1,6 @@
 using MediatR;
 using Splitwise_Back.Events.UserEvents;
+using Splitwise_Back.Models.Dtos;
 using Splitwise_Back.Services.Group;
 
 namespace Splitwise_Back.EventHandler.UserEventHandler;
@@ -26,5 +27,13 @@ public class UserDeleteEventHandlerForGroup:INotificationHandler<UserDeleteEvent
         {
             await _groupService.DeleteGroup(group.Id, notification.LoggedInUserId);
         }
+        
+        var groupsWhereUserExists = await _groupService.GetGroupsWhereUserExists(notification.UserId);
+        foreach (var group in groupsWhereUserExists)
+        {
+            await _groupService.RemoveMembersFromGroup(new RemoveFromGroupDto() { UserIds = [notification.UserId] },
+                group);
+        }
+
     }
 }

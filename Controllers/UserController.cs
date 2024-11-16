@@ -50,7 +50,7 @@ namespace Splitwise_Back.Controllers
                     Errors = results.Errors,
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;
@@ -82,7 +82,7 @@ namespace Splitwise_Back.Controllers
                     Errors = results.Errors,
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;
@@ -111,7 +111,7 @@ namespace Splitwise_Back.Controllers
                     Errors = results.Errors,
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;
@@ -145,7 +145,7 @@ namespace Splitwise_Back.Controllers
                     Errors = results.Errors,
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;
