@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using MySql.EntityFrameworkCore.Extensions;
+
 
 namespace Splitwise_Back.Data
 {
