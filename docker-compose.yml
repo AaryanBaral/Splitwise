@@ -1,28 +1,36 @@
 version: '3.8'
 
 services:
+
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=sqlserver@123
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "sqlcmd", "-U", "sa", "-P", "sqlserver@123", "-Q", "SELECT 1"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+      
   splitwise-app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5000:80"
+      - "5075:80"
     depends_on:
-      - mysql
+      - sqlserver
     environment:
-      - ConnectionStrings__Splitwise=Server=mysql;Database=Splitwise;User Id=sa;Password=mysql@123
-
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: mysql@123
-      MYSQL_DATABASE: Splitwise
-      MYSQL_USER: sa
-      MYSQL_PASSWORD: mysql@123
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
+      - ConnectionStrings__Splitwise=Server=sqlserver;Database=Splitwise;User Id=sa;Password=sqlserver@123;TrustServerCertificate=True;
 
 volumes:
-  mysql-data:
+  sqlserver-data:

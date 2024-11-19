@@ -24,10 +24,15 @@ namespace Splitwise_Back.Data
             var connString = configuration.GetConnectionString("Splitwise");
             services.AddDbContext<AppDbContext>(options =>
             {
-                options.UseSqlServer(connString);
+                options.UseSqlServer(connString, sqlOptions =>sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 10,
+                    maxRetryDelay: TimeSpan.FromSeconds(60),
+                    errorNumbersToAdd: null)
+                );
                 options.EnableSensitiveDataLogging(); // Enable sensitive data logging here
             });
             return services;
         }
+        
     }
 }
