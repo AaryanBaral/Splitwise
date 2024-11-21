@@ -10,6 +10,8 @@ services:
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=sqlserver@123
+    networks:
+      - app-network 
     ports:
       - "1433:1433"
     volumes:
@@ -29,8 +31,12 @@ services:
       - "5075:80"
     depends_on:
       - sqlserver
+    networks:
+      - app-network
     environment:
       - ConnectionStrings__Splitwise=Server=sqlserver;Database=Splitwise;User Id=sa;Password=sqlserver@123;TrustServerCertificate=True;
 
 volumes:
   sqlserver-data:
+networks:
+  app-network:
